@@ -26,3 +26,10 @@ node_modules
 
 # Users Environment Variables
 .lock-wscript
+
+# IntelliJ IDEA
+.idea
+
+# Kevscript module related garbage (when doing tests I am mostly creating dummy file called model.json and model.kevs)
+model.json
+model.kevs
