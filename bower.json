@@ -1,0 +1,28 @@
+{
+  "name": "kevoree-kevscript",
+  "version": "2.1.6",
+  "homepage": "https://github.com/kevoree/kevoree-kevscript",
+  "authors": [
+    "Maxime Tricoire <max.tricoire@gmail.com>"
+  ],
+  "description": "kevoree-js KevScript interpreter (API and command-line client)",
+  "main": "browser/kevoree-kevscript.js",
+  "moduleType": [
+    "amd",
+    "globals",
+    "node"
+  ],
+  "keywords": [
+    "kevoree",
+    "interpreter",
+    "kevscript"
+  ],
+  "license": "LGPL-3.0",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
