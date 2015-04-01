@@ -34,7 +34,8 @@ var KevScript = Class({
     toString: 'KevScript',
 
     construct: function (cacheManager) {
-        interpreter.setCacheManager(cacheManager || new CacheManager());
+        this.cacheManager = cacheManager || new CacheManager();
+        interpreter.setCacheManager(this.cacheManager);
     },
 
     /**
@@ -68,7 +69,7 @@ var KevScript = Class({
     },
 
     getCacheManager: function () {
-        return interpreter.getCacheManager();
+        return this.cacheManager;
     }
 });
 
@@ -665,9 +666,6 @@ module.exports.clearCache = function () {
 };
 module.exports.setCacheManager = function (cacheMgr) {
     statements['typeDef'].setCacheManager(cacheMgr);
-};
-module.exports.getCacheManager = function () {
-    statements['typeDef'].getCacheManager();
 };
 
 },{"./statements/add":17,"./statements/addBinding":18,"./statements/addRepo":19,"./statements/anything":20,"./statements/attach":21,"./statements/delBinding":22,"./statements/detach":23,"./statements/doubleQuoteLine":24,"./statements/escaped":25,"./statements/include":26,"./statements/instancePath":27,"./statements/move":28,"./statements/nameList":29,"./statements/namespace":30,"./statements/network":31,"./statements/newLine":32,"./statements/pause":33,"./statements/realString":34,"./statements/realStringNoNewLine":35,"./statements/remove":36,"./statements/repoString":37,"./statements/set":38,"./statements/singleQuoteLine":39,"./statements/start":40,"./statements/stop":41,"./statements/string":42,"./statements/string2":43,"./statements/string3":44,"./statements/typeDef":45,"./statements/typeFQN":46,"./statements/version":47,"./statements/wildcard":48,"async":49,"kevoree-library":85,"path":61}],14:[function(require,module,exports){
@@ -2628,10 +2626,6 @@ module.exports.clearCache = function () {
 
 module.exports.setCacheManager = function (cacheMgr) {
     cache = cacheMgr;
-};
-
-module.exports.getCacheManager = function () {
-    return cache;
 };
 
 function getModelPath(fqn) {
