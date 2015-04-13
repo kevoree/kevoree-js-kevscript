@@ -52153,13 +52153,15 @@ var http = require('http');
  * @param {Function} callback
  */
 function fromFQN(options, callback) {
-    options.type    = options.type  || 'json';
-    options.host    = options.host  || 'registry.kevoree.org';
-    options.port    = options.port  || 80;
+    options.type     = options.type  || 'json';
+    options.host     = options.host  || 'registry.kevoree.org';
+    options.port     = options.port  || 80;
+    options.protocol = options.protocol || 'http:';
 
     var reqOpts = {
         hostname: options.host,
         port: options.port,
+        protocol: options.protocol,
         headers: {},
         withCredentials: false
     };
@@ -52307,11 +52309,13 @@ function pushModel(options, callback) {
     options.type = options.type || 'json';
     options.host = options.host || 'registry.kevoree.org';
     options.port = options.port || 80;
+    options.protocol = options.protocol || 'http:';
 
 
     var reqOpts = {
         hostname: options.host,
         port: options.port,
+        protocol: options.protocol,
         path: '/deploy',
         method: 'POST',
         headers: {
