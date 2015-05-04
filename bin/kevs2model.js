@@ -12,7 +12,9 @@ var path = require('path'),
         .default('o', 'model.json')
         // -c, --ctxModel
         .alias('c', 'ctxModel')
-        .describe('c', 'A context model to apply KevScript on'),
+        .describe('n maic', 'A context model to apply KevScript on')
+        // --ctxVar
+        .describe('ctxVar', 'A context variable to replace a _NAME_ in the script (usage: --ctxVar NAME=foo)'),
     KevScript    = require('./../lib/KevScript'),
     kevoree      = require('kevoree-library').org.kevoree;
 
@@ -22,6 +24,19 @@ if (optimist.argv._.length === 1) {
     var factory = new kevoree.factory.DefaultKevoreeFactory();
     var serializer = factory.createJSONSerializer();
     var kevs = new KevScript();
+
+    var ctxVars = {};
+    if (optimist.argv.ctxVar) {
+        if (optimist.argv.ctxVar.constructor === Array) {
+            optimist.argv.ctxVar.forEach(function (ctxvar) {
+                var data = ctxvar.split('=');
+                ctxVars[data[0]] = data[1];
+            });
+        } else {
+            var data = optimist.argv.ctxVar.split('=');
+            ctxVars[data[0]] = data[1];
+        }
+    }
 
     /**
      *
@@ -58,7 +73,7 @@ if (optimist.argv._.length === 1) {
                     process.exit(1);
                 } else {
                     try {
-                        kevs.parse(data, loader.loadModelFromString(ctxModelSrc).get(0), kevscriptHandler);
+                        kevs.parse(data, loader.loadModelFromString(ctxModelSrc).get(0), ctxVars, kevscriptHandler);
                     } catch (err) {
                         console.log(chalk.red("Unable to load context model")+'\n'+err.stack);
                         process.exit(1);
@@ -66,7 +81,7 @@ if (optimist.argv._.length === 1) {
                 }
             });
         } else {
-            kevs.parse(data, kevscriptHandler);
+            kevs.parse(data, null, ctxVars, kevscriptHandler);
         }
     });
 } else {

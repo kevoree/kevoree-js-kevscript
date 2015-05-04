@@ -26,6 +26,7 @@ module.exports = CacheManager;
 },{}],2:[function(require,module,exports){
 var Class       = require('pseudoclass'),
     kevs        = require('./parser'),
+    shortid     = require('shortid'),
     interpreter = require('./interpreter'),
     modelInterpreter = require('./model-interpreter'),
     CacheManager = require('./CacheManager');
@@ -42,13 +43,39 @@ var KevScript = Class({
      * Parses given KevScript source-code in parameter 'data' and returns a ContainerRoot.
      * @param {String} data string
      * @param {Object|Function} [ctxModel] a model to "start" on (in order not to create a model from scratch)
+     * @param {Object|Function} [ctxVars] context variables to be accessible from the KevScript
      * @param {Function} callback function (Error, ContainerRoot)
      * @throws Error on SyntaxError and on source code validity and such
      */
-    parse: function (data, ctxModel, callback) {
-        if (typeof(callback) === 'undefined') {
+    parse: function (data, ctxModel, ctxVars, callback) {
+        if (typeof callback === 'undefined' && typeof ctxVars === 'undefined') {
+            // 2 params
             callback = ctxModel;
+            ctxVars = {};
             ctxModel = null;
+        } else if (typeof callback === 'undefined') {
+            callback = ctxVars;
+            ctxVars = {};
+        }
+
+        if (!ctxVars) {
+            ctxVars = {};
+        }
+
+        var toGenPattern = new RegExp('%(%[a-zA-Z0-9_]+%)%', 'g');
+        var match = toGenPattern.exec(data);
+        while (match != null) {
+            ctxVars[match[1]] = shortid.generate('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
+            match = toGenPattern.exec(data);
+        }
+
+        Object.keys(ctxVars).forEach(function (key) {
+            data = data.replace(new RegExp('%'+key+'%', 'g'), ctxVars[key]);
+        });
+
+        var res = /(%([a-zA-Z0-9_]+)%)/.exec(data);
+        if (res) {
+            callback(new Error('Context variable '+res[1]+' has no value (eg. --ctxVar '+res[2]+'=foo)'));
         }
 
         var parser = new kevs.Parser();
@@ -74,7 +101,7 @@ var KevScript = Class({
 });
 
 module.exports = KevScript;
-},{"./CacheManager":1,"./interpreter":13,"./model-interpreter":15,"./parser":16,"pseudoclass":89}],3:[function(require,module,exports){
+},{"./CacheManager":1,"./interpreter":13,"./model-interpreter":15,"./parser":16,"pseudoclass":89,"shortid":94}],3:[function(require,module,exports){
 /**
  * Created by leiko on 10/04/14.
  */
@@ -1100,7 +1127,7 @@ if (typeof module !== 'undefined') {
     module.exports.Parser = Parser;
 }
 
-},{"waxeye":91}],17:[function(require,module,exports){
+},{"waxeye":99}],17:[function(require,module,exports){
 var kevoree = require('kevoree-library').org.kevoree;
 var factory = new kevoree.factory.DefaultKevoreeFactory();
 var Kotlin  = require('kevoree-kotlin');
@@ -52360,7 +52387,7 @@ function pushModel(options, callback) {
 module.exports = pushModel;
 },{"http":55}],89:[function(require,module,exports){
 /*
-	Class - JavaScript inheritance
+	PseudoClass - JavaScript inheritance
 
 	Construction:
 		Setup and construction should happen in the construct() method.
@@ -52545,30 +52572,30 @@ module.exports = pushModel;
 	};
 
 	// The base Class implementation acts as extend alias, with the exception that it can take properties.extend as the Class to extend
-	var Class = function(properties) {
+	var PseudoClass = function(properties) {
 		// If a class-like object is passed as properties.extend, just call extend on it
 		if (properties && properties.extend)
 			return properties.extend.extend(properties);
 
 		// Otherwise, just create a new class with the passed properties
-		return Class.extend(properties);
+		return PseudoClass.extend(properties);
 	};
 	
-	// Add the mixin method to all classes created with Class
-	Class.prototype.mixin = mixin;
+	// Add the mixin method to all classes created with PseudoClass
+	PseudoClass.prototype.mixin = mixin;
 	
-	// Creates a new Class that inherits from this class
+	// Creates a new PseudoClass that inherits from this class
 	// Give the function a name so it can refer to itself without arguments.callee
-	Class.extend = function extend(properties) {
+	PseudoClass.extend = function extend(properties) {
 		// The constructor handles creating an instance of the class, applying mixins, and calling construct() and init() methods
-		function Class() {
+		function PseudoClass() {
 			// Optimization: Requiring the new keyword and avoiding usage of Object.create() increases performance by 5x
-			if (this instanceof Class === false) {
+			if (this instanceof PseudoClass === false) {
 				throw new Error('Cannot create instance without new operator');
 			}
 
 			// Set properties
-			var propertyDescriptors = Class.properties;
+			var propertyDescriptors = PseudoClass.properties;
 			if (propertyDescriptors) {
 				Object.defineProperties(this, propertyDescriptors);
 			}
@@ -52585,19 +52612,19 @@ module.exports = pushModel;
 		// Store the superConstructor
 		// It will be accessible on an instance as follows:
 		//	instance.constructor.superConstructor
-		Class.superConstructor = superConstructor;
+		PseudoClass.superConstructor = superConstructor;
 
 		// Add extend() as a static method on the constructor
-		Class.extend = extend;
+		PseudoClass.extend = extend;
 
 		// Create an object with the prototype of the superclass
 		// Store the extended class' prototype as the prototype of the constructor
-		var prototype = Class.prototype = Object.create(superPrototype);
+		var prototype = PseudoClass.prototype = Object.create(superPrototype);
 
 		// Assign prototype.constructor to the constructor itself
 		// This allows instances to refer to this.constructor.prototype
 		// This also allows creation of new instances using instance.constructor()
-		prototype.constructor = Class;
+		prototype.constructor = PseudoClass;
 
 		// Store the superPrototype
 		// It will be accessible on an instance as follows:
@@ -52625,7 +52652,7 @@ module.exports = pushModel;
 			}
 
 			// Define properties from this class and its parent classes
-			defineAndInheritProperties(Class, propertyDescriptors);
+			defineAndInheritProperties(PseudoClass, propertyDescriptors);
 
 			// Chain the construct() method (supermost executes first) if necessary
 			if (properties.construct) {
@@ -52669,22 +52696,27 @@ module.exports = pushModel;
 		if (typeof prototype.init !== 'function')
 			prototype.init = noop;
 
-		return Class;
+		return PseudoClass;
 	};
 	
 	if (typeof module !== 'undefined' && module.exports) {
 		// Node.js Support
-		module.exports = Class;
+		module.exports = PseudoClass;
 	}
 	else if (typeof global.define === 'function') {
 		(function(define) {
 			// AMD Support
-			define(function() { return Class; });
+			define(function() { return PseudoClass; });
 		}(global.define));
 	}
 	else {
 		// Browser support
-		global.Class = global.PseudoClass = Class;
+		global.PseudoClass = PseudoClass;
+
+		// Don't blow away existing Class variable
+		if (!global.Class) {
+			global.Class = PseudoClass;
+		}
 	}
 }(this));
 
@@ -53889,6 +53921,317 @@ if (typeof define === 'function' && define.amd)
 );
 
 },{}],91:[function(require,module,exports){
+'use strict';
+
+var randomFromSeed = require('./random/random-from-seed');
+
+var ORIGINAL = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-';
+var alphabet;
+var previousSeed;
+
+var shuffled;
+
+function reset() {
+    shuffled = false;
+}
+
+function setCharacters(_alphabet_) {
+    if (!_alphabet_) {
+        if (alphabet !== ORIGINAL) {
+            alphabet = ORIGINAL;
+            reset();
+        }
+        return;
+    }
+
+    if (_alphabet_ === alphabet) {
+        return;
+    }
+
+    if (_alphabet_.length !== ORIGINAL.length) {
+        throw new Error('Custom alphabet for shortid must be ' + ORIGINAL.length + ' unique characters. You submitted ' + _alphabet_.length + ' characters: ' + _alphabet_);
+    }
+
+    var unique = _alphabet_.split('').filter(function(item, ind, arr){
+       return ind !== arr.lastIndexOf(item);
+    });
+
+    if (unique.length) {
+        throw new Error('Custom alphabet for shortid must be ' + ORIGINAL.length + ' unique characters. These characters were not unique: ' + unique.join(', '));
+    }
+
+    alphabet = _alphabet_;
+    reset();
+}
+
+function characters(_alphabet_) {
+    setCharacters(_alphabet_);
+    return alphabet;
+}
+
+function setSeed(seed) {
+    randomFromSeed.seed(seed);
+    if (previousSeed !== seed) {
+        reset();
+        previousSeed = seed;
+    }
+}
+
+function shuffle() {
+    if (!alphabet) {
+        setCharacters(ORIGINAL);
+    }
+
+    var sourceArray = alphabet.split('');
+    var targetArray = [];
+    var r = randomFromSeed.nextValue();
+    var characterIndex;
+
+    while (sourceArray.length > 0) {
+        r = randomFromSeed.nextValue();
+        characterIndex = Math.floor(r * sourceArray.length);
+        targetArray.push(sourceArray.splice(characterIndex, 1)[0]);
+    }
+    return targetArray.join('');
+}
+
+function getShuffled() {
+    if (shuffled) {
+        return shuffled;
+    }
+    shuffled = shuffle();
+    return shuffled;
+}
+
+/**
+ * lookup shuffled letter
+ * @param index
+ * @returns {string}
+ */
+function lookup(index) {
+    var alphabetShuffled = getShuffled();
+    return alphabetShuffled[index];
+}
+
+module.exports = {
+    characters: characters,
+    seed: setSeed,
+    lookup: lookup,
+    shuffled: getShuffled
+};
+
+},{"./random/random-from-seed":97}],92:[function(require,module,exports){
+'use strict';
+var alphabet = require('./alphabet');
+
+/**
+ * Decode the id to get the version and worker
+ * Mainly for debugging and testing.
+ * @param id - the shortid-generated id.
+ */
+function decode(id) {
+    var characters = alphabet.shuffled();
+    return {
+        version: characters.indexOf(id.substr(0, 1)) & 0x0f,
+        worker: characters.indexOf(id.substr(1, 1)) & 0x0f
+    };
+}
+
+module.exports = decode;
+
+},{"./alphabet":91}],93:[function(require,module,exports){
+'use strict';
+
+var randomByte = require('./random/random-byte');
+
+function encode(lookup, number) {
+    var loopCounter = 0;
+    var done;
+
+    var str = '';
+
+    while (!done) {
+        str = str + lookup( ( (number >> (4 * loopCounter)) & 0x0f ) | randomByte() );
+        done = number < (Math.pow(16, loopCounter + 1 ) );
+        loopCounter++;
+    }
+    return str;
+}
+
+module.exports = encode;
+
+},{"./random/random-byte":96}],94:[function(require,module,exports){
+'use strict';
+
+var alphabet = require('./alphabet');
+var encode = require('./encode');
+var decode = require('./decode');
+var isValid = require('./is-valid');
+
+// Ignore all milliseconds before a certain time to reduce the size of the date entropy without sacrificing uniqueness.
+// This number should be updated every year or so to keep the generated id short.
+// To regenerate `new Date() - 0` and bump the version. Always bump the version!
+var REDUCE_TIME = 1426452414093;
+
+// don't change unless we change the algos or REDUCE_TIME
+// must be an integer and less than 16
+var version = 5;
+
+// if you are using cluster or multiple servers use this to make each instance
+// has a unique value for worker
+// Note: I don't know if this is automatically set when using third
+// party cluster solutions such as pm2.
+var clusterWorkerId = require('./util/cluster-worker-id') || 0;
+
+// Counter is used when shortid is called multiple times in one second.
+var counter;
+
+// Remember the last time shortid was called in case counter is needed.
+var previousSeconds;
+
+/**
+ * Generate unique id
+ * Returns string id
+ */
+function generate() {
+
+    var str = '';
+
+    var seconds = Math.floor((Date.now() - REDUCE_TIME) * 0.001);
+
+    if (seconds === previousSeconds) {
+        counter++;
+    } else {
+        counter = 0;
+        previousSeconds = seconds;
+    }
+
+    str = str + encode(alphabet.lookup, version);
+    str = str + encode(alphabet.lookup, clusterWorkerId);
+    if (counter > 0) {
+        str = str + encode(alphabet.lookup, counter);
+    }
+    str = str + encode(alphabet.lookup, seconds);
+
+    return str;
+}
+
+
+/**
+ * Set the seed.
+ * Highly recommended if you don't want people to try to figure out your id schema.
+ * exposed as shortid.seed(int)
+ * @param seed Integer value to seed the random alphabet.  ALWAYS USE THE SAME SEED or you might get overlaps.
+ */
+function seed(seedValue) {
+    alphabet.seed(seedValue);
+    return module.exports;
+}
+
+/**
+ * Set the cluster worker or machine id
+ * exposed as shortid.worker(int)
+ * @param workerId worker must be positive integer.  Number less than 16 is recommended.
+ * returns shortid module so it can be chained.
+ */
+function worker(workerId) {
+    clusterWorkerId = workerId;
+    return module.exports;
+}
+
+/**
+ *
+ * sets new characters to use in the alphabet
+ * returns the shuffled alphabet
+ */
+function characters(newCharacters) {
+    if (newCharacters !== undefined) {
+        alphabet.characters(newCharacters);
+    }
+
+    return alphabet.shuffled();
+}
+
+
+// Export all other functions as properties of the generate function
+module.exports = generate;
+module.exports.generate = generate;
+module.exports.seed = seed;
+module.exports.worker = worker;
+module.exports.characters = characters;
+module.exports.decode = decode;
+module.exports.isValid = isValid;
+
+},{"./alphabet":91,"./decode":92,"./encode":93,"./is-valid":95,"./util/cluster-worker-id":98}],95:[function(require,module,exports){
+'use strict';
+var alphabet = require('./alphabet');
+
+function isShortId(id) {
+    if (!id || typeof id !== 'string' || id.length < 6 ) {
+        return false;
+    }
+
+    var characters = alphabet.characters();
+    var invalidCharacters = id.split('').map(function(char){
+        if (characters.indexOf(char) === -1) {
+            return char;
+        }
+    }).join('').split('').join('');
+
+    return invalidCharacters.length === 0;
+}
+
+module.exports = isShortId;
+
+},{"./alphabet":91}],96:[function(require,module,exports){
+'use strict';
+
+var crypto = window.crypto || window.msCrypto; // IE 11 uses window.msCrypto
+
+function randomByte() {
+    if (!crypto || !crypto.getRandomValues) {
+        return Math.floor(Math.random() * 256) & 0x30;
+    }
+    var dest = new Uint8Array(1);
+    crypto.getRandomValues(dest);
+    return dest[0] & 0x30;
+}
+
+module.exports = randomByte;
+
+},{}],97:[function(require,module,exports){
+'use strict';
+
+// Found this seed-based random generator somewhere
+// Based on The Central Randomizer 1.3 (C) 1997 by Paul Houle (houle@msc.cornell.edu)
+
+var seed = 1;
+
+/**
+ * return a random number based on a seed
+ * @param seed
+ * @returns {number}
+ */
+function getNextValue() {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed/(233280.0);
+}
+
+function setSeed(_seed_) {
+    seed = _seed_;
+}
+
+module.exports = {
+    nextValue: getNextValue,
+    seed: setSeed
+};
+
+},{}],98:[function(require,module,exports){
+'use strict';
+
+module.exports = 0;
+
+},{}],99:[function(require,module,exports){
 var waxeye;
 /*
 # Waxeye Parser Generator
