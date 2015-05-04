@@ -65,7 +65,7 @@ var KevScript = Class({
         var toGenPattern = new RegExp('(%(%([a-zA-Z0-9_]+)%)%)', 'g');
         var match = toGenPattern.exec(data);
         while (match != null) {
-            ctxVars[match[3]] = shortid.generate('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
+            ctxVars[match[3]] = shortid.generate();
             data = data.replace(new RegExp(match[1], 'g'), match[2]);
             match = toGenPattern.exec(data);
         }
@@ -73,7 +73,7 @@ var KevScript = Class({
         Object.keys(ctxVars).forEach(function (key) {
             data = data.replace(new RegExp('%'+key+'%', 'g'), ctxVars[key]);
         });
-        
+
         var res = /(%([a-zA-Z0-9_]+)%)/.exec(data);
         if (res) {
             callback(new Error('Context variable '+res[1]+' has no value (eg. --ctxVar '+res[2]+'=foo)'));
@@ -102,6 +102,7 @@ var KevScript = Class({
 });
 
 module.exports = KevScript;
+
 },{"./CacheManager":1,"./interpreter":13,"./model-interpreter":15,"./parser":16,"pseudoclass":89,"shortid":94}],3:[function(require,module,exports){
 /**
  * Created by leiko on 10/04/14.
