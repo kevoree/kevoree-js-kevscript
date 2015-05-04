@@ -14,7 +14,7 @@ var path = require('path'),
         .alias('c', 'ctxModel')
         .describe('n maic', 'A context model to apply KevScript on')
         // --ctxVar
-        .describe('ctxVar', 'A context variable to replace a _NAME_ in the script (usage: --ctxVar NAME=foo)'),
+        .describe('ctxVar', 'A context variable to replace a %NAME% in the script (usage: --ctxVar NAME=foo)'),
     KevScript    = require('./../lib/KevScript'),
     kevoree      = require('kevoree-library').org.kevoree;
 
