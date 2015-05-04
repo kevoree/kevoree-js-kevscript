@@ -62,17 +62,18 @@ var KevScript = Class({
             ctxVars = {};
         }
 
-        var toGenPattern = new RegExp('%(%[a-zA-Z0-9_]+%)%', 'g');
+        var toGenPattern = new RegExp('(%(%([a-zA-Z0-9_]+)%)%)', 'g');
         var match = toGenPattern.exec(data);
         while (match != null) {
-            ctxVars[match[1]] = shortid.generate('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
+            ctxVars[match[3]] = shortid.generate('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
+            data = data.replace(new RegExp(match[1], 'g'), match[2]);
             match = toGenPattern.exec(data);
         }
 
         Object.keys(ctxVars).forEach(function (key) {
             data = data.replace(new RegExp('%'+key+'%', 'g'), ctxVars[key]);
         });
-
+        
         var res = /(%([a-zA-Z0-9_]+)%)/.exec(data);
         if (res) {
             callback(new Error('Context variable '+res[1]+' has no value (eg. --ctxVar '+res[2]+'=foo)'));
