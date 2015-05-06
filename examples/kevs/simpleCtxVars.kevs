@@ -1,9 +1,7 @@
 add %%nodeName%%: JavascriptNode
 add %grp%: WSGroup
 
-set %grp%.onConnect = '
-add {nodeName}.ticker: Ticker
-'
+set %grp%.master = '%%foo%%'
 
 attach %%nodeName%% %grp%
 
