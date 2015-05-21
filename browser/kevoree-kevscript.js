@@ -2669,7 +2669,7 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
                         var version = new SemVer(tdefs[0].version);
                         if (version.prerelease.length === 0) {
                             // only cache releases
-                            cache.add(fqn, tdefModelStr);
+                            cache.add(getFqn(tdefs[0]), tdefModelStr);
                         }
                         // ...and answer with the newly added TypeDefinition from the registry
                         cb(null, tdefs[0]);
