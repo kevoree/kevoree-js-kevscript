@@ -87,4 +87,3 @@ if (optimist.argv._.length === 1) {
 } else {
     console.log(optimist.help());
 }
-
