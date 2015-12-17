@@ -1,4 +1,4 @@
-add node : DotnetNode
+add node : JavascriptNode
 add sync : WSGroup
 
 attach node sync
