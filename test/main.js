@@ -24,16 +24,18 @@ CacheManager.prototype.clear = function () {
 var kevs = new KevoreeKevscript(new CacheManager());
 
 var script =
-    'add node: JavascriptNode\n' +
-    'add sync: WSGroup/5.2.9-SNAPSHOT\n' +
-    'attach node sync';
+    'add node, %%foo%%: JavascriptNode\n' +
+    'add sync: WSGroup\n' +
+    'attach node, %%foo%% sync';
+var ctxVars = {};
 
-kevs.parse(script, function (err, model) {
+kevs.parse(script, null, ctxVars, function (err, model) {
     if (err) {
         console.log('BOUM');
         throw err;
     } else {
         console.log('OK');
+        console.log(ctxVars);
         console.log(model);
     }
 });
