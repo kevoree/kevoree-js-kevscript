@@ -2,24 +2,27 @@
 
 module.exports = function (grunt) {
 
-    grunt.initConfig({
-        pkg: grunt.file.readJSON('package.json'),
+  grunt.initConfig({
+    pkg: grunt.file.readJSON('package.json'),
 
-        browserify: {
-            browser: {
-                options: {
-                    browserifyOptions: {
-                        standalone: 'KevoreeKevscript',
-                        debug: true
-                    }
-                },
-                src: ['<%= pkg.main %>'],
-                dest: 'browser/<%= pkg.name %>.js'
-            }
-        }
-    });
+    browserify: {
+      main: {
+        options: {
+          external: ['kevoree-library'],
+          standalone: 'KevoreeKevscript'
+        },
+        src: '<%= pkg.name %>',
+        dest: 'browser/<%= pkg.name %>.js'
+      },
+      test: {
+        src: 'test/browser/test.js',
+        dest: 'browser/test.js'
+      }
+    }
+  });
 
-    grunt.loadNpmTasks('grunt-browserify');
+  grunt.loadNpmTasks('grunt-browserify');
 
-    grunt.registerTask('default', 'browserify');
+  grunt.registerTask('default', 'browserify:main');
+  grunt.registerTask('test', ['browserify:test']);
 };

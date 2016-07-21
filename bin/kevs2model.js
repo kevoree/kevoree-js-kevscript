@@ -20,7 +20,8 @@ var path = require('path'),
         // --log.level
         .describe('log.level', 'Change logger level (ALL|DEBUG|INFO|WARN|ERROR|QUIET) (default: INFO)'),
     KevScript    = require('./../lib/KevScript'),
-    kevoree      = require('kevoree-library').org.kevoree;
+    kevoree      = require('kevoree-library'),
+    KevoreeLogger= require('kevoree-commons').KevoreeLogger;
 
 var HOME_DIR = process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME'];
 var KREGRC_PATH = path.resolve(HOME_DIR, '.kregrc.json');
@@ -31,7 +32,12 @@ if (optimist.argv._.length === 1) {
     var output = path.resolve(optimist.argv.o);
     var factory = new kevoree.factory.DefaultKevoreeFactory();
     var serializer = factory.createJSONSerializer();
-    var kevs = new KevScript(new KevScript.cache.MemoryCache());
+    var logger = new KevoreeLogger('KevScript');
+    var logLevel = nconf.get('log:level');
+    if (logLevel) {
+      logger.setLevel(logLevel);
+    }
+    var kevs = new KevScript(logger, new KevScript.cache.MemoryCache());
 
     var ctxVars = {};
     if (optimist.argv.ctxVar) {
