@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = function (grunt) {
 
     grunt.initConfig({
@@ -7,7 +9,8 @@ module.exports = function (grunt) {
             browser: {
                 options: {
                     browserifyOptions: {
-                        standalone: 'KevoreeKevscript'
+                        standalone: 'KevoreeKevscript',
+                        debug: true
                     }
                 },
                 src: ['<%= pkg.main %>'],

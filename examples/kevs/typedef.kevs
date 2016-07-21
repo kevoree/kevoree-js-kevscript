@@ -1,6 +1,6 @@
-add node0, node1, node2 : JavascriptNode
-add sync : WSGroup
+add node0: JavascriptNode
+add sync: WSGroup
 
-attach * sync
+attach node0 sync
 
-remove node1
+set node0.logLevel = 'DEBUG'
