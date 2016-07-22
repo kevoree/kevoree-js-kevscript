@@ -4,7 +4,7 @@
 var path = require('path'),
     fs   = require('fs'),
     chalk= require('chalk'),
-    nconf= require('nconf'),
+    nconf= require('kevoree-nconf'),
     optimist = require('optimist')
         .usage('Usage: $0 <path/to/a/model.kevs> [-c /path/to/a/context/model.json -o /path/to/output/model.json]')
         .demand(['o'])

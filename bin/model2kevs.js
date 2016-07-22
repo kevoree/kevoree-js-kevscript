@@ -3,7 +3,7 @@
 
 var path     = require('path'),
     fs       = require('fs'),
-    nconf    = require('nconf'),
+    nconf    = require('kevoree-nconf'),
     optimist = require('optimist')
         .usage('Usage: $0 <path/to/a/model.json> [-o path/to/output/model.kevs]')
         .demand(['o'])
