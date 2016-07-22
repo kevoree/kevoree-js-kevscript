@@ -1,17 +1,18 @@
 'use strict';
 
 module.exports = function (grunt) {
-
   grunt.initConfig({
     pkg: grunt.file.readJSON('package.json'),
 
     browserify: {
       main: {
         options: {
-          external: ['kevoree-library'],
-          standalone: 'KevoreeKevscript'
+          external: ['kevoree-library', 'kevoree-nconf'],
+          browserifyOptions: {
+            standalone: 'KevoreeKevscript'
+          }
         },
-        src: '<%= pkg.name %>',
+        src: '<%= pkg.main %>',
         dest: 'browser/<%= pkg.name %>.js'
       },
       test: {

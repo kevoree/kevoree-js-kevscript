@@ -1,8 +1,7 @@
 'use strict';
+/* globals KevoreeKevscript, KevoreeCommons, expect */
 
-var nconf = require('kevoree-nconf');
-var KevScript = require('../../lib/KevScript');
-var KevoreeLogger = require('kevoree-commons').KevoreeLogger;
+const nconf = require('kevoree-nconf');
 
 nconf.use('memory');
 
@@ -16,22 +15,32 @@ nconf.set('registry', {
   }
 });
 
-var logger = new KevoreeLogger('KevScript');
-logger.setLevel('DEBUG');
-var kevs = new KevScript(logger, new KevScript.cache.MemoryCache());
+describe('KevScript tests', function () {
+  this.timeout(2500);
 
-var script =
-    'add node, %%foo%%: JavascriptNode\n' +
-    'add sync: WSGroup';
-var ctxVars = {};
+  var kevs;
+  beforeEach(function () {
+    var logger = new KevoreeCommons.KevoreeLogger('KevScript');
+    logger.setLevel('debug');
+    kevs = new KevoreeKevscript(logger);
+  });
 
-kevs.parse(script, null, ctxVars, function (err, model) {
-    if (err) {
-        console.err('BOUM');
-        throw err;
-    } else {
-        console.log('OK');
-        console.log(ctxVars);
-        console.log(model);
-    }
+  it('should create an instance \'node0: JavascriptNode\'', function (done) {
+    var script = 'add node0: JavascriptNode';
+
+    kevs.parse(script, function (err, model) {
+      if (err) {
+        done(err);
+      } else {
+        expect(model).toExist();
+        const node = model.findNodesByID('node0');
+        expect(node).toExist();
+        expect(node.typeDefinition).toExist();
+        expect(node.typeDefinition.name).toEqual('JavascriptNode');
+        done();
+      }
+    });
+  });
+
+  // TODO
 });
