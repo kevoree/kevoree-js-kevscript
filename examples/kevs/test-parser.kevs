@@ -3,12 +3,6 @@
 
 repo "http://foo.fr"
 
-include npm:kevoree-node-javascript
-include npm:kevoree-group-websocket:latest
-include npm:kevoree-chan-websocket
-// include mvn:org.kevoree.library.javase:org.kevoree.library.javase.websocketgrp:latest
-include npm:kevoree-comp-fakeconsole
-
 // this is a comment
 add node0, node1: JavascriptNode
 add sync : WebSocketGroup

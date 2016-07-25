@@ -2665,13 +2665,15 @@ arguments[4][28][0].apply(exports,arguments)
 },{"dup":28}],48:[function(require,module,exports){
 'use strict';
 
-var kevoree = require('kevoree-library').org.kevoree;
+
+var kevoree = require('kevoree-library');
 var tdefResolver = require('../typedef-resolver');
 
 var factory = new kevoree.factory.DefaultKevoreeFactory();
 var compare = factory.createModelCompare();
 
 var cache = null;
+var DEFAULT_NAMESPACE = 'kevoree';
 
 function askRegistry(model, namespace, name, version, logger) {
   return tdefResolver(namespace, name, version, logger)
@@ -2693,8 +2695,8 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
   }
 
   if (name.split('.').length === 1) {
-    // default package to 'org.kevoree.library' for namespace-less TypeDefinitions (ie: add node: JavascriptNode)
-    namespace = 'org.kevoree.library';
+    // default namespace to DEFAULT_NAMESPACE for namespace-less TypeDefinitions (ie: add node: JavascriptNode)
+    namespace = DEFAULT_NAMESPACE;
   } else {
     var splitted = name.split('.');
     name = splitted.pop();

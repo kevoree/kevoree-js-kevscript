@@ -1,5 +1,3 @@
-include npm:kevoree-node-javascript
-
 add node0, node1, node0.child : JavascriptNode
 
 stop node0, node0.child
