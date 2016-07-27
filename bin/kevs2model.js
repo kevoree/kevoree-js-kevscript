@@ -14,7 +14,7 @@ var path = require('path'),
         .default('o', 'model.json')
         // -c, --ctxModel
         .alias('c', 'ctxModel')
-        .describe('n maic', 'A context model to apply KevScript on')
+        .describe('ctxModel', 'A context model to apply KevScript on')
         // --ctxVar
         .describe('ctxVar', 'A context variable to replace a %NAME% in the script (usage: --ctxVar NAME=foo)')
         // --log.level

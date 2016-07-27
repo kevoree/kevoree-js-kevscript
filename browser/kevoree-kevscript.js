@@ -2679,8 +2679,8 @@ function askRegistry(model, namespace, name, version, logger) {
   return tdefResolver(namespace, name, version, logger)
     .then(function (res) {
       compare.merge(model, res.model).applyOn(model);
-      logger.debug('KevScript', 'Add ' + res.path + ' to cache');
       var tdef = model.findByPath(res.path);
+      logger.debug('KevScript', 'Add ' + namespace + '.' + name + '/' + tdef.version + ' to cache');
       cache.add(res.path, tdef);
       return tdef;
     });
@@ -2709,26 +2709,47 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
       // specified version is LATEST: ask registry for LATEST
       askRegistry(model, namespace, name, version, opts.logger)
         .then(function (tdef) {
+          opts.logger.debug('KevScript', 'Add ' + namespace + '.' + name + '/' + tdef.version + ' to cache');
+          cache.add(tdef.path(), tdef);
           cb(null, tdef);
         })
         .catch(cb);
 
     } else {
-      // specified version is not LATEST: ask cache
+      // specified version is not LATEST
+      var tdefPath = '/packages[' + namespace.split('.').join(']/packages[') + ']/typeDefinitions[name=' + name + ',version=' + version + ']';
+
+      // ask cache
       opts.logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/' + version + ' in cache...');
-      var tdefFound = cache.get('/packages[' + namespace.split('.').join(']/packages[') + ']/typeDefinitions[name=' + name + ',version=' + version + ']');
-      if (tdefFound) {
+      var tdef = cache.get(tdefPath);
+      if (tdef) {
         // tdef found in cache
         opts.logger.info('KevScript', 'Found ' + namespace + '.' + name + '/' + version + ' in cache');
-        cb(null, tdefFound);
+        cb(null, tdef);
       } else {
-        // unable to find tdef namespace.name/version in cache: ask registry
+        // unable to find tdef namespace.name/version in cache:
         opts.logger.debug('KevScript', 'Unable to find ' + namespace + '.' + name + '/' + version + ' in cache');
-        askRegistry(model, namespace, name, version, opts.logger)
-          .then(function (tdef) {
-            cb(null, tdef);
-          })
-          .catch(cb);
+
+        // try to find in model
+        opts.logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/' + version + ' in model...');
+        tdef = model.findByPath(tdefPath);
+        if (tdef) {
+          // found tdef in model
+          opts.logger.info('KevScript', 'Found ' + namespace + '.' + name + '/' + version + ' in model');
+          opts.logger.debug('KevScript', 'Add ' + namespace + '.' + name + '/' + version + ' to cache');
+          cache.add(tdefPath, tdef);
+          cb(null, tdef);
+        } else {
+          // unable to find tdef in model
+          opts.logger.debug('KevScript', 'Unable to find ' + namespace + '.' + name + '/' + version + ' in model');
+
+          // ask registry
+          askRegistry(model, namespace, name, version, opts.logger)
+            .then(function (tdef) {
+              cb(null, tdef);
+            })
+            .catch(cb);
+        }
       }
     }
   } else {
