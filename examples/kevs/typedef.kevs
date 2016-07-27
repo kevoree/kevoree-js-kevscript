@@ -1,6 +1,1 @@
-add node0: JavascriptNode
 add sync: WSGroup
-
-attach node0 sync
-
-set node0.logLevel = 'DEBUG'
