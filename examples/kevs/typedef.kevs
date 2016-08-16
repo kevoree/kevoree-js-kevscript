@@ -1,1 +1,2 @@
-add sync: WSGroup
+add sync: WSGroup/1/LATEST
+// add unknown: Yolo

@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 'use strict';
 
-var path     = require('path'),
-    fs       = require('fs'),
-    nconf    = require('kevoree-nconf'),
-    optimist = require('optimist')
+var path          = require('path'),
+    fs            = require('fs'),
+    config        = require('tiny-conf'),
+    KevScript     = require('./../lib/KevScript'),
+    kevoree       = require('kevoree-library'),
+    kConst        = require('kevoree-const'),
+    KevoreeLogger = require('kevoree-commons').KevoreeLogger,
+    optimist      = require('optimist')
         .usage('Usage: $0 <path/to/a/model.json> [-o path/to/output/model.kevs]')
         .demand(['o'])
         .alias('o', 'output')
         .describe('o', 'Where to write the output Kevoree Kevscript model')
-        .default('o', 'model.kevs'),
-    KevScript = require('./../lib/KevScript'),
-    kevoree   = require('kevoree-library'),
-    KevoreeLogger= require('kevoree-commons').KevoreeLogger;
+        .default('o', 'model.kevs');
 
-var HOME_DIR = process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME'];
-var KREGRC_PATH = path.resolve(HOME_DIR, '.kregrc.json');
-nconf.argv({ 'registry.ssl': { type: 'boolean' } }).file(KREGRC_PATH).use('memory');
+require('tiny-conf-plugin-file')(config, kConst.CONFIG_PATH);
+require('tiny-conf-plugin-argv')(config);
 
 if (optimist.argv._.length === 1) {
     var input = path.resolve(optimist.argv._[0]);
@@ -24,7 +24,7 @@ if (optimist.argv._.length === 1) {
     var factory = new kevoree.factory.DefaultKevoreeFactory();
     var loader = factory.createJSONLoader();
     var logger = new KevoreeLogger('KevScript');
-    var logLevel = nconf.get('log:level');
+    var logLevel = config.get('log.level');
     if (logLevel) {
       logger.setLevel(logLevel);
     }

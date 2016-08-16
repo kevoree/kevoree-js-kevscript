@@ -1,7 +1,7 @@
 'use strict';
 /* globals KevoreeKevscript, KevoreeCommons, expect */
 
-const nconf = require('kevoree-nconf');
+const nconf = require('tiny-conf');
 
 nconf.use('memory');
 
