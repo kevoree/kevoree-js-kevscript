@@ -1283,10 +1283,48 @@ module.exports = function shortid() {
 };
 
 },{}],20:[function(require,module,exports){
+'use strict';
+
 var kevoree = require('kevoree-library').org.kevoree;
 var factory = new kevoree.factory.DefaultKevoreeFactory();
 var Kotlin  = require('kevoree-kotlin');
 var getFQN  = require('../getFQN');
+
+function inflateDictionary(instance) {
+    var dicType = instance.typeDefinition.dictionaryType;
+    if (dicType) {
+        var dic = factory.createDictionary();
+        var attrs = dicType.attributes.iterator();
+        while (attrs.hasNext()) {
+            var attr = attrs.next();
+            if (!attr.fragmentDependant && !attr.optional && typeof attr.defaultValue !== 'undefined') {
+                var val = factory.createValue();
+                val.name = attr.name;
+                val.value = attr.defaultValue;
+                dic.addValues(val);
+            }
+        }
+        if (dic.values.size() > 0) {
+            instance.dictionary = dic;
+        }
+    }
+}
+
+function createPorts(comp) {
+  comp.typeDefinition.provided.array.forEach(function (portType) {
+    var port = factory.createPort();
+    port.name = portType.name;
+    port.portTypeRef = portType;
+    comp.addProvided(port);
+  });
+
+  comp.typeDefinition.required.array.forEach(function (portType) {
+    var port = factory.createPort();
+    port.name = portType.name;
+    port.portTypeRef = portType;
+    comp.addRequired(port);
+  });
+}
 
 module.exports = function (model, statements, stmt, opts, done) {
     var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
@@ -1294,26 +1332,6 @@ module.exports = function (model, statements, stmt, opts, done) {
         if (err) {
             done(err);
         } else {
-            function inflateDictionary(instance) {
-                var dicType = instance.typeDefinition.dictionaryType;
-                if (dicType) {
-                    var dic = factory.createDictionary();
-                    var attrs = dicType.attributes.iterator();
-                    while (attrs.hasNext()) {
-                        var attr = attrs.next();
-                        if (!attr.fragmentDependant && !attr.optional && typeof attr.defaultValue !== 'undefined') {
-                            var val = factory.createValue();
-                            val.name = attr.name;
-                            val.value = attr.defaultValue;
-                            dic.addValues(val);
-                        }
-                    }
-                    if (dic.values.size() > 0) {
-                        instance.dictionary = dic;
-                    }
-                }
-            }
-
             // add node instance function
             function addNodeInstance(namespace, nodeName, parentNode) {
                 if (nodeName !== '*') {
@@ -1461,6 +1479,7 @@ module.exports = function (model, statements, stmt, opts, done) {
                                     comp.typeDefinition = model.findByPath(tDef.path());;
                                     comp.started = true;
                                     inflateDictionary(comp);
+                                    createPorts(comp);
                                     nodes.next().addComponents(comp);
                                 }
 
@@ -1472,6 +1491,7 @@ module.exports = function (model, statements, stmt, opts, done) {
                                     comp.typeDefinition = model.findByPath(tDef.path());;
                                     comp.started = true;
                                     inflateDictionary(comp);
+                                    createPorts(comp);
                                     node.addComponents(comp);
 
                                 } else {
@@ -1490,176 +1510,187 @@ module.exports = function (model, statements, stmt, opts, done) {
         }
     });
 };
+
 },{"../getFQN":13,"kevoree-kotlin":66,"kevoree-library":"kevoree-library"}],21:[function(require,module,exports){
-var kevoree = require('kevoree-library').org.kevoree;
+'use strict';
+
+var kevoree = require('kevoree-library');
 var factory = new kevoree.factory.DefaultKevoreeFactory();
 
 module.exports = function (model, statements, stmt, opts, cb) {
-    var port = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-    var chan = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
+  var port = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+  var chan = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
 
-    function addBinding2(portName, comp, node, chanInst) {
-        // start with an undefined portInst
-        var portInst;
+  function addBinding2(portName, comp, node, chanInst) {
+    // start with an undefined portInst
+    var portInst;
 
-        // now lets try to find a Port instance in this component provided ports
-        portInst = comp.findProvidedByID(portName);
-        if (!portInst) {
-            // if we can't find it in provided ports, lets try in required
-            portInst = comp.findRequiredByID(portName);
+    // now lets try to find a Port instance in this component provided ports
+    portInst = comp.findProvidedByID(portName);
+    if (!portInst) {
+      // if we can't find it in provided ports, lets try in required
+      portInst = comp.findRequiredByID(portName);
+    }
+    if (!portInst) {
+      // reaching this point means that we were not able to find any port instance
+      // matching this portName, so we have to create a brand new port instance
+      portInst = factory.createPort();
+      // lets try to find a PortTypeRef in the component TypeDefinition provided ports that matches portName
+      var inputRefs = comp.typeDefinition.provided.iterator();
+      while (inputRefs.hasNext()) {
+        var inRef = inputRefs.next();
+        if (inRef.name === portName) {
+          // bingo, add it the the comp instance
+          portInst.portTypeRef = inRef;
+          portInst.name = portName;
+          comp.addProvided(portInst);
+          break;
         }
-        if (!portInst) {
-            // reaching this point means that we were not able to find any port instance
-            // matching this portName, so we have to create a brand new port instance
-            portInst = factory.createPort();
-            // lets try to find a PortTypeRef in the component TypeDefinition provided ports that matches portName
-            var inputRefs = comp.typeDefinition.provided.iterator();
-            while (inputRefs.hasNext()) {
-                var inRef = inputRefs.next();
-                if (inRef.name === portName) {
-                    // bingo, add it the the comp instance
-                    portInst.portTypeRef = inRef;
-                    portInst.name = portName;
-                    comp.addProvided(portInst);
-                    break;
-                }
-            }
-            if (!portInst.portTypeRef) {
-                // well, it isn't a provided port obviously, so now lets try to find out if it is a required
-                var outputRefs = comp.typeDefinition.required.iterator();
-                while (outputRefs.hasNext()) {
-                    var outRef = outputRefs.next();
-                    if (outRef.name == portName) {
-                        // bingo, add it to the comp instance
-                        portInst.portTypeRef = outRef;
-                        portInst.name = portName;
-                        comp.addRequired(portInst);
-                        break;
-                    }
-                }
-            }
+      }
+      if (!portInst.portTypeRef) {
+        // well, it isn't a provided port obviously, so now lets try to find out if it is a required
+        var outputRefs = comp.typeDefinition.required.iterator();
+        while (outputRefs.hasNext()) {
+          var outRef = outputRefs.next();
+          if (outRef.name === portName) {
+            // bingo, add it to the comp instance
+            portInst.portTypeRef = outRef;
+            portInst.name = portName;
+            comp.addRequired(portInst);
+            break;
+          }
         }
-
-        if (portInst && portInst.portTypeRef && portInst.name === portName) {
-            var bindings = model.mBindings.iterator();
-            var alreadyBound = false;
-            while (bindings.hasNext()) {
-                var binding = bindings.next();
-                if (binding.hub.name === chanInst.name &&
-                    binding.port.name === portName &&
-                    binding.port.eContainer().name === comp.name &&
-                    binding.port.eContainer().eContainer().name === node.name) {
-                    alreadyBound = true;
-                    break;
-                }
-            }
-
-            if (!alreadyBound) {
-                binding = factory.createMBinding();
-                binding.port = portInst;
-                binding.hub  = chanInst;
-                model.addMBindings(binding);
-            }
-        } else {
-            // seems like you are trying to connect a port that do not belong to the comp you referred to
-            return cb(new Error('Unable to find port "'+portName+'" in component '+comp.typeDefinition.name+'['+comp.name+'] (bind '+port.toString()+' '+chan.toString()+')'));
-        }
+      }
     }
 
-    function addBinding1(portName, compName, node, chanInst) {
-        var comp = node.findComponentsByID(compName);
-        if (comp) {
-            if (portName === '*') {
-                var inputRefs = comp.typeDefinition.provided.iterator();
-                while (inputRefs.hasNext()) {
-                    addBinding2(inputRefs.next().name, comp, node, chanInst);
-                }
-                var outputRefs = comp.typeDefinition.required.iterator();
-                while (outputRefs.hasNext()) {
-                    addBinding2(outputRefs.next().name, comp, node, chanInst);
-                }
-
-            } else {
-                addBinding2(portName, comp, node, chanInst);
-            }
-        } else {
-            return cb(new Error('Unable to find component instance "'+compName+'" in node "'+node.name+'" (bind '+port.toString()+' '+chan.toString()+')'));
+    if (portInst && portInst.portTypeRef && portInst.name === portName) {
+      var bindings = model.mBindings.iterator();
+      var alreadyBound = false;
+      while (bindings.hasNext()) {
+        var binding = bindings.next();
+        if (binding.hub.name === chanInst.name &&
+          binding.port.name === portName &&
+          binding.port.eContainer().name === comp.name &&
+          binding.port.eContainer().eContainer().name === node.name) {
+          alreadyBound = true;
+          break;
         }
+      }
+
+      if (!alreadyBound) {
+        binding = factory.createMBinding();
+        binding.port = portInst;
+        binding.hub = chanInst;
+        model.addMBindings(binding);
+      }
+    } else {
+      // seems like you are trying to connect a port that do not belong to the comp you referred to
+      throw new Error('Unable to find port "' + portName + '" in component ' + comp.typeDefinition.name + '[' + comp.name + '] (bind ' + port.toString() + ' ' + chan.toString() + ')');
     }
+  }
 
-    function addBinding0(portName, compName, nodeName, chanInst) {
-        var node = model.findNodesByID(nodeName);
-        if (node) {
-            if (compName === '*') {
-                var compz = node.components.iterator();
-                while (compz.hasNext()) {
-                    addBinding1(portName, compz.next().name, node, chanInst);
-                }
-
-            } else {
-                addBinding1(portName, compName, node, chanInst);
-            }
-        } else {
-            return cb(new Error('Unable to find node instance "'+nodeName+'" in model (bind '+port.toString()+' '+chan.toString()+')'));
+  function addBinding1(portName, compName, node, chanInst) {
+    var comp = node.findComponentsByID(compName);
+    if (comp) {
+      if (portName === '*') {
+        var inputRefs = comp.typeDefinition.provided.iterator();
+        while (inputRefs.hasNext()) {
+          addBinding2(inputRefs.next().name, comp, node, chanInst);
         }
-    }
-
-    function bindPortToChan(chanInst) {
-        port.expect(3, 4, function (err, namespace, nodeName, compName, portName) {
-            if (err) {
-                err.message += ' (bind '+port.toString()+' '+chan.toString()+')';
-                return cb(err);
-            }
-
-            if (namespace) {
-                // TODO
-                return cb(new Error('Namespaces are not handled yet :/ Sorry (bind '+port.toString()+' '+chan.toString()+')'));
-
-            } else {
-                if (nodeName === '*') {
-                    var nodes = model.nodes.iterator();
-                    while (nodes.hasNext()) {
-                        addBinding0(portName, compName, nodes.next().name, chanInst);
-                    }
-
-                } else {
-                    addBinding0(portName, compName, nodeName, chanInst);
-                }
-            }
-        });
-    }
-
-    chan.expect(1, 2, function (err, namespace, name) {
-        if (err) {
-            err.message += ' (bind '+port.toString()+' '+chan.toString()+')';
-            return cb(err);
+        var outputRefs = comp.typeDefinition.required.iterator();
+        while (outputRefs.hasNext()) {
+          addBinding2(outputRefs.next().name, comp, node, chanInst);
         }
 
+      } else {
+        addBinding2(portName, comp, node, chanInst);
+      }
+    } else {
+      throw new Error('Unable to find component instance "' + compName + '" in node "' + node.name + '" (bind ' + port.toString() + ' ' + chan.toString() + ')');
+    }
+  }
+
+  function addBinding0(portName, compName, nodeName, chanInst) {
+    var node = model.findNodesByID(nodeName);
+    if (node) {
+      if (compName === '*') {
+        var compz = node.components.iterator();
+        while (compz.hasNext()) {
+          addBinding1(portName, compz.next().name, node, chanInst);
+        }
+
+      } else {
+        addBinding1(portName, compName, node, chanInst);
+      }
+    } else {
+      throw new Error('Unable to find node instance "' + nodeName + '" in model (bind ' + port.toString() + ' ' + chan.toString() + ')');
+    }
+  }
+
+  function bindPortToChan(chanInst) {
+    port.expect(3, 4, function (err, namespace, nodeName, compName, portName) {
+      if (err) {
+        err.message += ' (bind ' + port.toString() + ' ' + chan.toString() + ')';
+        cb(err);
+      } else {
         if (namespace) {
-            // TODO
-            return cb(new Error('Namespaces are not handled yet :/ Sorry (bind '+port.toString()+' '+chan.toString()+')'));
+          // TODO
+          throw new Error('Namespaces are not handled yet :/ Sorry (bind ' + port.toString() + ' ' + chan.toString() + ')');
 
         } else {
-            if (name === '*') {
-                var chanz = model.hubs.iterator();
-                while (chanz.hasNext()) {
-                    bindPortToChan(chanz.next());
-                }
-
-            } else {
-                var chanInst = model.findHubsByID(name);
-                if (chanInst) {
-                    bindPortToChan(chanInst);
-
-                } else {
-                    return cb(new Error('Unable to find target channel instance "'+name+'" (bind '+port.toString()+' '+chan.toString()+')'));
-                }
+          if (nodeName === '*') {
+            var nodes = model.nodes.iterator();
+            while (nodes.hasNext()) {
+              addBinding0(portName, compName, nodes.next().name, chanInst);
             }
-        }
-    });
 
-    cb();
+          } else {
+            addBinding0(portName, compName, nodeName, chanInst);
+          }
+        }
+      }
+    });
+  }
+
+  chan.expect(1, 2, function (err, namespace, name) {
+    if (err) {
+      err.message += ' (bind ' + port.toString() + ' ' + chan.toString() + ')';
+      cb(err);
+    } else {
+      if (namespace) {
+        cb(new Error('Namespaces are not handled yet :/ Sorry (bind ' + port.toString() + ' ' + chan.toString() + ')'));
+
+      } else {
+        if (name === '*') {
+          var chanz = model.hubs.iterator();
+          try {
+            while (chanz.hasNext()) {
+              bindPortToChan(chanz.next());
+            }
+            cb();
+          } catch (err) {
+            cb(err);
+          }
+
+        } else {
+          var chanInst = model.findHubsByID(name);
+          if (chanInst) {
+            try {
+              bindPortToChan(chanInst);
+              cb();
+            } catch (err) {
+              cb(err);
+            }
+
+          } else {
+            cb(new Error('Unable to find target channel instance "' + name + '" (bind ' + port.toString() + ' ' + chan.toString() + ')'));
+          }
+        }
+      }
+    }
+  });
 };
+
 },{"kevoree-library":"kevoree-library"}],22:[function(require,module,exports){
 var kevoree = require('kevoree-library').org.kevoree;
 var factory = new kevoree.factory.DefaultKevoreeFactory();
@@ -1794,7 +1825,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
             if (comp) {
                 unbindPortFromChan1(portName, comp, node, chanName);
             } else {
-                return cb(new Error('Unable to find component instance "'+compName+'" in node instance "'+node.name+'" (unbind '+port.toString()+' '+chan.toString()+')'));
+                throw new Error('Unable to find component instance "'+compName+'" in node instance "'+node.name+'" (unbind '+port.toString()+' '+chan.toString()+')');
             }
         }
     }
@@ -1808,7 +1839,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
 
             if (namespace) {
                 // TODO
-                return cb(new Error('Namespaces are not handled yet :/ Sorry (unbind '+port.toString()+' '+chan.toString()+')'));
+                throw new Error('Namespaces are not handled yet :/ Sorry (unbind '+port.toString()+' '+chan.toString()+')');
 
             } else {
                 if (nodeName === '*') {
@@ -1822,7 +1853,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
                     if (node) {
                         unbindPortFromChan0(portName, compName, node, chanInst.name);
                     } else {
-                        return cb(new Error('Unable to find node instance "'+nodeName+'" in model (unbind '+port.toString()+' '+chan.toString()+')'));
+                        throw new Error('Unable to find node instance "'+nodeName+'" in model (unbind '+port.toString()+' '+chan.toString()+')');
                     }
                 }
             }
@@ -1832,33 +1863,42 @@ module.exports = function (model, statements, stmt, opts, cb) {
     chan.expect(1, 2, function (err, namespace, name) {
         if (err) {
             err.message += ' (unbind '+port.toString()+' '+chan.toString()+')';
-            return cb(err);
+            cb(err);
         }
 
         if (namespace) {
             // TODO
-            return cb(new Error('Namespaces are not handled yet :/ Sorry (unbind '+port.toString()+' '+chan.toString()+')'));
+            cb(new Error('Namespaces are not handled yet :/ Sorry (unbind '+port.toString()+' '+chan.toString()+')'));
 
         } else {
             if (name === '*') {
                 var chanz = model.hubs.iterator();
-                while (chanz.hasNext()) {
-                    preUnbindProcess(chanz.next());
+                try {
+                  while (chanz.hasNext()) {
+                      preUnbindProcess(chanz.next());
+                  }
+                  cb();
+                } catch (err) {
+                  cb(err);
                 }
 
             } else {
                 var chanInst = model.findHubsByID(name);
                 if (chanInst) {
-                    preUnbindProcess(chanInst);
+                    try {
+                      preUnbindProcess(chanInst);
+                      cb();
+                    } catch (err) {
+                      cb(err);
+                    }
                 } else {
-                    return cb(new Error('Unable to find channel instance "'+name+'" in model (unbind '+port.toString()+' '+chan.toString()+')'));
+                    cb(new Error('Unable to find channel instance "'+name+'" in model (unbind '+port.toString()+' '+chan.toString()+')'));
                 }
             }
         }
     });
-
-    cb();
 }
+
 },{}],26:[function(require,module,exports){
 module.exports = function (model, statements, stmt, opts, cb) {
     var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
@@ -2512,7 +2552,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
                 dicValue.value = value;
                 dic.addValues(dicValue);
             } else {
-                cb(new Error('Unknown attribute "'+attrName+'" in '+dic.eContainer().path()+' (set '+attr.toString()+' = "'+value+'")'));
+                throw new Error('Unknown attribute "'+attrName+'" in '+dic.eContainer().path()+' (set '+attr.toString()+' = "'+value+'")');
             }
         }
     }
@@ -2527,7 +2567,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
             if (!host) {
                 host = node.findHostsByID(hostName);
                 if (!host) {
-                    return cb(new Error('Unable to find instance "'+hostName+'" in "'+node.name+'" model (set '+attr.toString()+' = "'+value+'")'));
+                    throw new Error('Unable to find instance "'+hostName+'" in "'+node.name+'" model (set '+attr.toString()+' = "'+value+'")');
                 }
             }
             processInstanceAttribute(host, attrName);
@@ -2561,20 +2601,23 @@ module.exports = function (model, statements, stmt, opts, cb) {
         attr.expect(2, 4, function (err, ns, two, three, four) {
             if (err) {
                 err.message += ' (set '+attr.toString()+' = "'+value+'")';
-                return cb(err);
+                cb(err);
             }
 
             if (ns) {
                 // TODO
-                return cb(new Error('Namespaces are not handled yet :/ Sorry (set '+attr.toString()+' = "'+value+'")'));
+                cb(new Error('Namespaces are not handled yet :/ Sorry (set '+attr.toString()+' = "'+value+'")'));
 
             } else {
+              try {
                 if (two) {
                     // statement looks like foo.bar.baz = '42'
                     if (two === '*') {
                         // TODO handle namespaces too when using '*' ?
                         var nodes = model.nodes.iterator();
-                        while (nodes.hasNext()) processNodeAndHostsAttribute(nodes.next(), three, four);
+                        while (nodes.hasNext()) {
+                          processNodeAndHostsAttribute(nodes.next(), three, four);
+                        }
 
                     } else {
                         // check whether "two" is a namespace or a node name
@@ -2584,7 +2627,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
 
                         } else {
                             // TODO
-                            return cb(new Error('Namespaces are not handled yet :/ Sorry (set '+attr.toString()+' = "'+value+'")'));
+                            throw new Error('Namespaces are not handled yet :/ Sorry (set '+attr.toString()+' = "'+value+'")');
                         }
                     }
 
@@ -2595,9 +2638,13 @@ module.exports = function (model, statements, stmt, opts, cb) {
                         processInstanceAttribute(instance, four);
 
                     } else {
-                        return cb(new Error('Unable to find instance "'+two+'" in model (set '+attr.toString()+' = "'+value+'")'));
+                        throw new Error('Unable to find instance "'+two+'" in model (set '+attr.toString()+' = "'+value+'")');
                     }
                 }
+                cb();
+              } catch (err) {
+                cb(err);
+              }
             }
         });
 
@@ -2610,44 +2657,50 @@ module.exports = function (model, statements, stmt, opts, cb) {
         attr.expect(2, 3, function (err, ns, instanceName, attrName) {
             if (err) {
                 err.message += ' (set '+attr.toString()+'/'+node.toString()+' = "'+value+'")';
-                return cb(err);
+                cb(err);
             }
 
             if (ns) {
                 // TODO
-                return cb(new Error('Namespaces are not handled yet :/ Sorry (set '+attr.toString()+'/'+node.toString()+' = "'+value+'")'));
+                cb(new Error('Namespaces are not handled yet :/ Sorry (set '+attr.toString()+'/'+node.toString()+' = "'+value+'")'));
 
             } else {
-                if (instanceName === '*') {
-                    var groups = model.groups.iterator();
-                    while (groups.hasNext()) processInstanceAttribute(groups.next(), attrName);
-                    var hubs = model.hubs.iterator();
-                    while (hubs.hasNext()) processInstanceAttribute(hubs.next(), attrName);
+                try {
+                  if (instanceName === '*') {
+                      var groups = model.groups.iterator();
+                      while (groups.hasNext()) {
+                        processInstanceAttribute(groups.next(), attrName);
+                      }
+                      var hubs = model.hubs.iterator();
+                      while (hubs.hasNext()) {
+                        processInstanceAttribute(hubs.next(), attrName);
+                      }
 
-                } else {
-                    // instance is whether a group or a channel
-                    var groups = model.groups.iterator();
-                    while (groups.hasNext()) {
-                        var grp = groups.next();
-                        if (grp.name === instanceName) {
-                            return processInstanceAttribute(grp, attrName);
+                  } else {
+                      // instance is whether a group or a channel
+                      var group = model.findGroupsByID(instanceName);
+                      if (group) {
+                        // instance is a group
+                        processInstanceAttribute(grp, attrName);
+                      } else {
+                        var chan = model.findHubsByID(instanceName);
+                        if (chan) {
+                          // instance is a channel
+                          processInstanceAttribute(chan, attrName);
+                        } else {
+                          throw new Error('Unable to find instance ' + instanceName + ' in model (set '+attr.toString()+'/'+node.toString()+' = "'+value+'")');
                         }
-                    }
-
-                    var chans = model.hubs.iterator();
-                    while (chans.hasNext()) {
-                        var hub = chans.next();
-                        if (hub.name === instanceName) {
-                            return processInstanceAttribute(hub, attrName);
-                        }
-                    }
+                      }
+                  }
+                  cb();
+                } catch (err) {
+                  cb(err);
                 }
             }
         });
     }
-
-    cb();
 };
+
 },{"../model-helper":16,"kevoree-library":"kevoree-library"}],42:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
 },{"dup":27}],43:[function(require,module,exports){
