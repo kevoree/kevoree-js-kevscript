@@ -2529,6 +2529,8 @@ module.exports = function (model, statements, stmt) {
   return stmt.children.join('');
 };
 },{}],41:[function(require,module,exports){
+'use strict';
+
 var kevoree = require('kevoree-library').org.kevoree;
 var factory = new kevoree.factory.DefaultKevoreeFactory();
 var helper  = require('../model-helper');
@@ -2557,23 +2559,6 @@ module.exports = function (model, statements, stmt, opts, cb) {
         }
     }
 
-    function processNodeAndHostsAttribute(node, hostName, attrName) {
-        if (hostName === '*') {
-            var comps = node.components.iterator();
-            while (comps.hasNext()) processInstanceAttribute(comps.next(), attrName);
-
-        } else {
-            var host = node.findComponentsByID(hostName);
-            if (!host) {
-                host = node.findHostsByID(hostName);
-                if (!host) {
-                    throw new Error('Unable to find instance "'+hostName+'" in "'+node.name+'" model (set '+attr.toString()+' = "'+value+'")');
-                }
-            }
-            processInstanceAttribute(host, attrName);
-        }
-    }
-
     function processInstanceAttribute(instance, attrName) {
         if (node) {
             // fragment dependant attribute
@@ -2588,8 +2573,29 @@ module.exports = function (model, statements, stmt, opts, cb) {
 
         } else {
             // non-fragment dependant attribute
-            if (!instance.dictionary) instance.dictionary = factory.createDictionary();
+            if (!instance.dictionary) {
+              instance.dictionary = factory.createDictionary();
+            }
             processAttribute(instance.dictionary, attrName);
+        }
+    }
+
+    function processNodeAndHostsAttribute(node, hostName, attrName) {
+        if (hostName === '*') {
+            var comps = node.components.iterator();
+            while (comps.hasNext()) {
+              processInstanceAttribute(comps.next(), attrName);
+            }
+
+        } else {
+            var host = node.findComponentsByID(hostName);
+            if (!host) {
+                host = node.findHostsByID(hostName);
+                if (!host) {
+                    throw new Error('Unable to find instance "'+hostName+'" in "'+node.name+'" model (set '+attr.toString()+' = "'+value+'")');
+                }
+            }
+            processInstanceAttribute(host, attrName);
         }
     }
 
@@ -2681,7 +2687,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
                       var group = model.findGroupsByID(instanceName);
                       if (group) {
                         // instance is a group
-                        processInstanceAttribute(grp, attrName);
+                        processInstanceAttribute(group, attrName);
                       } else {
                         var chan = model.findHubsByID(instanceName);
                         if (chan) {
@@ -2807,7 +2813,6 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
       var tdefPath = '/packages[' + namespace.split('.').join(']/packages[') + ']/typeDefinitions[name=' + name + ',version=' + version.tdef + ']';
 
       // ask cache
-      opts.logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/' + version.tdef + ' in cache...');
       var tdef = cache.get(tdefPath);
       if (tdef) {
         // tdef found in cache
@@ -2815,10 +2820,7 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
         cb(null, tdef);
       } else {
         // unable to find tdef namespace.name/version in cache:
-        opts.logger.debug('KevScript', 'Unable to find ' + namespace + '.' + name + '/' + version.tdef + ' in cache');
-
         // try to find in model
-        opts.logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/' + version.tdef + ' in model...');
         tdef = model.findByPath(tdefPath);
         if (tdef) {
           // found tdef in model
@@ -2828,8 +2830,6 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
           cb(null, tdef);
         } else {
           // unable to find tdef in model
-          opts.logger.debug('KevScript', 'Unable to find ' + namespace + '.' + name + '/' + version.tdef + ' in model');
-
           // ask registry
           askRegistry(model, namespace, name, version, opts.logger)
             .then(function (tdef) {
@@ -2932,7 +2932,7 @@ function createPackage(factory, model, namespace) {
 module.exports = function typeDefResolver(namespace, name, version, logger) {
   return Q.Promise(function (resolve, reject) {
     if (version.tdef === 'LATEST') {
-      logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/LATEST on the registry...');
+      logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/LATEST in the registry...');
       return api.tdef({
         name: name,
         namespace: {
@@ -2942,7 +2942,7 @@ module.exports = function typeDefResolver(namespace, name, version, logger) {
       .latest()
       .then(resolve).catch(reject);
     } else {
-      logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/' + version.tdef + ' on the registry...');
+      logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/' + version.tdef + ' in the registry...');
       return api.tdef({
         name: name,
         version: version.tdef,
@@ -2955,7 +2955,11 @@ module.exports = function typeDefResolver(namespace, name, version, logger) {
     }
   })
   .then(function (tdef) {
-    logger.info('KevScript', 'Found TypeDefinition ' + namespace + '.' + name + '/' + tdef.version + ' on the registry');
+    if (version.tdef === 'LATEST') {
+      logger.info('KevScript', namespace + '.' + name + '/LATEST resolved to version ' + tdef.version);
+    } else {
+      logger.info('KevScript', namespace + '.' + name + '/' + tdef.version + ' resolved');
+    }
     var factory = new kevoree.factory.DefaultKevoreeFactory();
     var loader = factory.createJSONLoader();
     var tdefModel = loader.loadModelFromString(tdef.model).get(0);
