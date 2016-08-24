@@ -17,6 +17,9 @@ function KevScript(logger, cacheManager) {
       config.get('registry.host') + (config.get('registry.port') === 80 ? '' : ':' + config.get('registry.port')));
 }
 
+var GEN_CTX_VAR = /(%(%([a-zA-Z0-9_]+)%)%)/g;
+var CTX_VAR = /%[a-zA-Z0-9_]+%/g;
+
 KevScript.prototype = {
   toString: function () {
     return 'KevScript';
@@ -45,21 +48,20 @@ KevScript.prototype = {
       ctxVars = {};
     }
 
-    var toGenPattern = new RegExp('(%(%([a-zA-Z0-9_]+)%)%)', 'g');
-    var match = toGenPattern.exec(data);
+    var match = GEN_CTX_VAR.exec(data);
     while (match !== null) {
       ctxVars[match[3]] = shortid();
       data = data.replace(new RegExp(match[1], 'g'), match[2]);
-      match = toGenPattern.exec(data);
+      match = GEN_CTX_VAR.exec(data);
     }
 
     Object.keys(ctxVars).forEach(function (key) {
       data = data.replace(new RegExp('%' + key + '%', 'g'), ctxVars[key]);
     });
 
-    var res = /(%([a-zA-Z0-9_]+)%)/.exec(data);
+    var res = CTX_VAR.exec(data);
     if (res) {
-      callback(new Error('Context variable ' + res[1] + ' has no value (eg. --ctxVar ' + res[2] + '=foo)'));
+      callback(new Error('Context variable ' + res[0] + ' has no value (eg. --ctxVar ' + res[0] + '=foo)'));
     }
 
     var parser = new kevs.Parser();
@@ -88,7 +90,7 @@ module.exports = KevScript;
 module.exports.cache = caches;
 module.exports.Parser = kevs.Parser;
 
-},{"./cache":4,"./interpreter":15,"./model-interpreter":17,"./parser":18,"./shortid":19,"tiny-conf":"tiny-conf"}],2:[function(require,module,exports){
+},{"./cache":4,"./interpreter":14,"./model-interpreter":16,"./parser":17,"./shortid":18,"tiny-conf":"tiny-conf"}],2:[function(require,module,exports){
 'use strict';
 
 /**
@@ -189,386 +191,382 @@ module.exports.NoCache = require('./NoCache');
 module.exports.MemoryCache = require('./MemoryCache');
 
 },{"./MemoryCache":2,"./NoCache":3}],5:[function(require,module,exports){
-/**
- * Created by leiko on 10/04/14.
- */
+'use strict';
+
 module.exports = function (model) {
-    var grps = model.groups.iterator();
+  var grps = model.groups.iterator();
 
-    var str = '';
-    while (grps.hasNext()) {
-        var grp = grps.next();
-        if (grp.subNodes.size() > 0) {
-            if (str.length !== 0) {
-                str += '\n';
-            }
+  var str = '';
+  while (grps.hasNext()) {
+    var grp = grps.next();
+    if (grp.subNodes.size() > 0) {
+      if (str.length !== 0) {
+        str += '\n';
+      }
 
-            str += 'attach ';
+      str += 'attach ';
 
-            var subNodes = grp.subNodes.iterator();
-            while (subNodes.hasNext()) {
-                var subNode = subNodes.next();
-                str += subNode.name;
-                if (subNodes.hasNext()) {
-                    str += ', ';
-                }
-            }
-
-            str += ' '+grp.name;
+      var subNodes = grp.subNodes.iterator();
+      while (subNodes.hasNext()) {
+        var subNode = subNodes.next();
+        str += subNode.name;
+        if (subNodes.hasNext()) {
+          str += ', ';
         }
-    }
+      }
 
-    return str;
+      str += ' ' + grp.name;
+    }
+  }
+
+  return str;
 };
+
 },{}],6:[function(require,module,exports){
-/**
- * Created by leiko on 10/04/14.
- */
+'use strict';
+
 module.exports = function (model) {
-    var bindings = model.mBindings.iterator();
+  var bindings = model.mBindings.iterator();
 
-    var str = '';
-    while (bindings.hasNext()) {
-        var binding = bindings.next();
-        if (str.length !== 0) {
-            str += '\n';
-        }
-
-        str += 'bind ' +
-            binding.port.eContainer().eContainer().name + '.' +
-            binding.port.eContainer().name + '.' +
-            binding.port.name + ' ' +
-            binding.hub.name;
+  var str = '';
+  while (bindings.hasNext()) {
+    var binding = bindings.next();
+    if (str.length !== 0) {
+      str += '\n';
     }
 
-    return str;
+    str += 'bind ' +
+      binding.port.eContainer().eContainer().name + '.' +
+      binding.port.eContainer().name + '.' +
+      binding.port.name + ' ' +
+      binding.hub.name;
+  }
+
+  return str;
 };
+
 },{}],7:[function(require,module,exports){
-/**
- * Created by leiko on 10/04/14.
- */
+'use strict';
+
 module.exports = function (model) {
-    var tdefs = model.typeDefinitions.iterator();
-    var str = '';
-    while (tdefs.hasNext()) {
-        var du = tdefs.next().deployUnit;
-        var type = 'mvn';
-        if (du.type === 'npm') {
-            type = 'npm';
-        }
-
-        var def = '';
-        if (du.groupName) {
-            def += du.groupName+':';
-        }
-        def += du.name+':';
-        def += du.version;
-
-        if (str.indexOf(def) === -1) {
-            if (str.length !== 0) {
-                str += '\n';
-            }
-            str += 'include '+type+':'+def;
-        }
+  var tdefs = model.typeDefinitions.iterator();
+  var str = '';
+  while (tdefs.hasNext()) {
+    var du = tdefs.next().deployUnit;
+    var type = 'mvn';
+    if (du.type === 'npm') {
+      type = 'npm';
     }
 
-    return str;
+    var def = '';
+    if (du.groupName) {
+      def += du.groupName + ':';
+    }
+    def += du.name + ':';
+    def += du.version;
+
+    if (str.indexOf(def) === -1) {
+      if (str.length !== 0) {
+        str += '\n';
+      }
+      str += '// DEPRECATED: include ' + type + ':' + def;
+    }
+  }
+
+  return str;
 };
+
 },{}],8:[function(require,module,exports){
 'use strict';
 
 var getFQN = require('../getFQN');
 
-/**
- * Created by leiko on 10/04/14.
- */
 module.exports = function (model) {
-    var str = '';
+  var str = '';
 
-    function process(elems) {
-        var map = {};
-        while (elems.hasNext()) {
-            var elem = elems.next();
-            var fqn = getFQN(elem.typeDefinition);
-            var list = map[fqn] || [];
-            list.push(elem.name);
-            map[fqn] = list;
-        }
-
-        for (var tdef in map) {
-            if (map.hasOwnProperty(tdef)) {
-                if (str.length !== 0) {
-                    str += '\n';
-                }
-                str += 'add '+map[tdef].join(', ')+' : '+tdef;
-            }
-        }
+  function process(elems) {
+    var map = {};
+    while (elems.hasNext()) {
+      var elem = elems.next();
+      var fqn = getFQN(elem.typeDefinition);
+      var list = map[fqn] || [];
+      list.push(elem.name);
+      map[fqn] = list;
     }
 
-    function processRootNodes(elems) {
-        var map = {};
-        while (elems.hasNext()) {
-            var elem = elems.next();
-            var fqn = getFQN(elem.typeDefinition);
-            var list = map[fqn] || [];
-
-            if (!elem.host) {
-                list.push(elem.name);
-            }
-
-            map[fqn] = list;
+    for (var tdef in map) {
+      if (map.hasOwnProperty(tdef)) {
+        if (str.length !== 0) {
+          str += '\n';
         }
+        str += 'add ' + map[tdef].join(', ') + ' : ' + tdef;
+      }
+    }
+  }
 
-        for (var tdef in map) {
-            if (map.hasOwnProperty(tdef)) {
-                if (map[tdef].length > 0) {
-                    if (str.length !== 0) {
-                        str += '\n';
-                    }
-                    str += 'add '+map[tdef].join(', ')+' : '+tdef;
-                }
-            }
-        }
+  function processRootNodes(elems) {
+    var map = {};
+    while (elems.hasNext()) {
+      var elem = elems.next();
+      var fqn = getFQN(elem.typeDefinition);
+      var list = map[fqn] || [];
+
+      if (!elem.host) {
+        list.push(elem.name);
+      }
+
+      map[fqn] = list;
     }
 
-    function processHostedNodesAndComps(elems) {
-        var compsMap = {};
-        var subnodesMap = {};
-        var list;
-        while (elems.hasNext()) {
-            var elem = elems.next(), fqn;
-
-            if (elem.host) {
-                // elem is a subNode
-                fqn = getFQN(elem.typeDefinition);
-                list = subnodesMap[fqn] || [];
-                list.push(elem.host.name+'.'+elem.name);
-                subnodesMap[fqn] = list;
-            }
-
-            var comps = elem.components.iterator();
-            while (comps.hasNext()) {
-                var comp = comps.next();
-                fqn = getFQN(comp.typeDefinition);
-                list = compsMap[fqn] || [];
-                list.push(elem.name+'.'+comp.name);
-                compsMap[fqn] = list;
-            }
+    for (var tdef in map) {
+      if (map.hasOwnProperty(tdef)) {
+        if (map[tdef].length > 0) {
+          if (str.length !== 0) {
+            str += '\n';
+          }
+          str += 'add ' + map[tdef].join(', ') + ' : ' + tdef;
         }
+      }
+    }
+  }
 
-        var tdef;
-        for (tdef in compsMap) {
-            if (compsMap.hasOwnProperty(tdef)) {
-                if (compsMap[tdef].length > 0) {
-                    if (str.length !== 0) {
-                        str += '\n';
-                    }
-                    str += 'add '+compsMap[tdef].join(', ')+' : '+tdef;
-                }
-            }
-        }
+  function processHostedNodesAndComps(elems) {
+    var compsMap = {};
+    var subnodesMap = {};
+    var list;
+    while (elems.hasNext()) {
+      var elem = elems.next(),
+        fqn;
 
-        for (tdef in subnodesMap) {
-            if (subnodesMap.hasOwnProperty(tdef)) {
-                if (subnodesMap[tdef].length > 0) {
-                    if (str.length !== 0) {
-                        str += '\n';
-                    }
-                    str += 'add '+subnodesMap[tdef].join(', ')+' : '+tdef;
-                }
-            }
-        }
+      if (elem.host) {
+        // elem is a subNode
+        fqn = getFQN(elem.typeDefinition);
+        list = subnodesMap[fqn] || [];
+        list.push(elem.host.name + '.' + elem.name);
+        subnodesMap[fqn] = list;
+      }
+
+      var comps = elem.components.iterator();
+      while (comps.hasNext()) {
+        var comp = comps.next();
+        fqn = getFQN(comp.typeDefinition);
+        list = compsMap[fqn] || [];
+        list.push(elem.name + '.' + comp.name);
+        compsMap[fqn] = list;
+      }
     }
 
-    processRootNodes(model.nodes.iterator());
-    processHostedNodesAndComps(model.nodes.iterator());
-    process(model.groups.iterator());
-    process(model.hubs.iterator());
+    var tdef;
+    for (tdef in compsMap) {
+      if (compsMap.hasOwnProperty(tdef)) {
+        if (compsMap[tdef].length > 0) {
+          if (str.length !== 0) {
+            str += '\n';
+          }
+          str += 'add ' + compsMap[tdef].join(', ') + ' : ' + tdef;
+        }
+      }
+    }
 
-    return str.replace(/kevoree\./g, '');
+    for (tdef in subnodesMap) {
+      if (subnodesMap.hasOwnProperty(tdef)) {
+        if (subnodesMap[tdef].length > 0) {
+          if (str.length !== 0) {
+            str += '\n';
+          }
+          str += 'add ' + subnodesMap[tdef].join(', ') + ' : ' + tdef;
+        }
+      }
+    }
+  }
+
+  processRootNodes(model.nodes.iterator());
+  processHostedNodesAndComps(model.nodes.iterator());
+  process(model.groups.iterator());
+  process(model.hubs.iterator());
+
+  return str.replace(/kevoree\./g, '');
 };
 
 },{"../getFQN":13}],9:[function(require,module,exports){
-/**
- * Created by leiko on 20/06/14.
- */
+'use strict';
+
 module.exports = function (model) {
-    var str = '';
-    var toStop = [];
+  var str = '';
+  var toStop = [];
 
-    function addElems(instances, host) {
-        while (instances.hasNext()) {
-            var instance = instances.next();
-            if (!instance.started) {
-                // instance is stopped => add to toStop array
-                if (host) {
-                    toStop.push(host.name+'.'+instance.name);
-                } else {
-                    toStop.push(instance.name);
-                }
-            }
-
-            // if instance has components => check for their state too
-            if (instance.components) {
-                addElems(instance.components.iterator(), instance);
-            }
-            // if instance has hosts => check for their state too
-            if (instance.hosts) {
-                addElems(instance.hosts.iterator(), instance);
-            }
+  function addElems(instances, host) {
+    while (instances.hasNext()) {
+      var instance = instances.next();
+      if (!instance.started) {
+        // instance is stopped => add to toStop array
+        if (host) {
+          toStop.push(host.name + '.' + instance.name);
+        } else {
+          toStop.push(instance.name);
         }
+      }
+
+      // if instance has components => check for their state too
+      if (instance.components) {
+        addElems(instance.components.iterator(), instance);
+      }
+      // if instance has hosts => check for their state too
+      if (instance.hosts) {
+        addElems(instance.hosts.iterator(), instance);
+      }
     }
+  }
 
-    addElems(model.nodes.iterator());
-    addElems(model.groups.iterator());
-    addElems(model.hubs.iterator());
+  addElems(model.nodes.iterator());
+  addElems(model.groups.iterator());
+  addElems(model.hubs.iterator());
 
-    // generate statement
-    if (toStop.length > 0) {
-        str = 'stop ' + toStop.join(', ');
-    }
+  // generate statement
+  if (toStop.length > 0) {
+    str = 'stop ' + toStop.join(', ');
+  }
 
-    return str;
+  return str;
 };
+
 },{}],10:[function(require,module,exports){
-/**
- * Created by leiko on 10/04/14.
- */
+'use strict';
+
 module.exports = function (model) {
-    var str = '';
+  var str = '';
 
-    var nodes = model.nodes.iterator();
-    while (nodes.hasNext()) {
-        var node = nodes.next();
-        var nets = node.networkInformation.iterator();
-        while (nets.hasNext()) {
-            var net = nets.next();
-            var values = net.values.iterator();
-            while (values.hasNext()) {
-                var val = values.next();
-                if (str.length !== 0) {
-                    str += '\n';
-                }
-
-                str += 'network '+node.name+'.'+net.name+'.'+val.name+' '+val.value;
-            }
-        }
-    }
-
-    return str;
-};
-},{}],11:[function(require,module,exports){
-/**
- * Created by leiko on 10/04/14.
- * @param model
- * @returns {string}
- */
-module.exports = function (model) {
-    var str = '';
-
-    var repos = model.repositories.iterator();
-    while (repos.hasNext()) {
-        var repo = repos.next();
+  var nodes = model.nodes.iterator();
+  while (nodes.hasNext()) {
+    var node = nodes.next();
+    var nets = node.networkInformation.iterator();
+    while (nets.hasNext()) {
+      var net = nets.next();
+      var values = net.values.iterator();
+      while (values.hasNext()) {
+        var val = values.next();
         if (str.length !== 0) {
-            str += '\n';
+          str += '\n';
         }
-        str += 'repo "'+repo.url+'"';
-    }
 
-    return str;
+        str += 'network ' + node.name + '.' + net.name + '.' + val.name + ' ' + val.value;
+      }
+    }
+  }
+
+  return str;
 };
-},{}],12:[function(require,module,exports){
-/**
- * Created by leiko on 10/04/14.
- */
-function lexValue(value) {
-    if (value) {
-        var escaped = false;
-        for (var i=0; i < value.length; i++) {
-            if (value[i] === '"' && !escaped) {
-                return '\''+value+'\'';
-            }
 
-            if (value[i] === '\'' && !escaped) {
-                return '"'+value+'"';
-            }
+},{}],11:[function(require,module,exports){
+'use strict';
 
-            escaped = (value[i] === '\\');
-        }
-        return '\''+value+'\'';
-    } else {
-        return '\'\'';
+module.exports = function (model) {
+  var str = '';
+
+  var repos = model.repositories.iterator();
+  while (repos.hasNext()) {
+    var repo = repos.next();
+    if (str.length !== 0) {
+      str += '\n';
     }
+    str += '// DEPRECATED: repo "' + repo.url + '"';
+  }
+
+  return str;
+};
+
+},{}],12:[function(require,module,exports){
+'use strict';
+
+function lexValue(value) {
+  if (value) {
+    var escaped = false;
+    for (var i = 0; i < value.length; i++) {
+      if (value[i] === '"' && !escaped) {
+        return '\'' + value + '\'';
+      }
+
+      if (value[i] === '\'' && !escaped) {
+        return '"' + value + '"';
+      }
+
+      escaped = (value[i] === '\\');
+    }
+    return '\'' + value + '\'';
+  } else {
+    return '\'\'';
+  }
 }
 
 module.exports = function (model) {
-    var str = '';
+  var str = '';
 
-    function processDictionary(instanceName, values, fragName, dicType) {
-        while (values.hasNext()) {
-            var val = values.next();
-            var attr = dicType.findAttributesByID(val.name);
-            if (attr.defaultValue !== val.value) {
-                if (str.length !== 0) {
-                    str += '\n';
-                }
-
-                if (fragName) {
-                    str += 'set '+instanceName+'.'+val.name+'/'+fragName+' = '+lexValue(val.value);
-                } else {
-                    str += 'set '+instanceName+'.'+val.name+' = '+lexValue(val.value);
-                }
-            }
+  function processDictionary(instanceName, values, fragName, dicType) {
+    while (values.hasNext()) {
+      var val = values.next();
+      var attr = dicType.findAttributesByID(val.name);
+      if (attr.defaultValue !== val.value) {
+        if (str.length !== 0) {
+          str += '\n';
         }
+
+        if (fragName) {
+          str += 'set ' + instanceName + '.' + val.name + '/' + fragName + ' = ' + lexValue(val.value);
+        } else {
+          str += 'set ' + instanceName + '.' + val.name + ' = ' + lexValue(val.value);
+        }
+      }
+    }
+  }
+
+  function processInstance(instance, host) {
+    var instanceName = (host) ? (host + '.' + instance.name) : (instance.name);
+
+    if (instance.dictionary) {
+      processDictionary(instanceName, instance.dictionary.values.iterator(), null, instance.typeDefinition.dictionaryType);
     }
 
-    function processInstance(instance, host) {
-        var instanceName = (host) ? (host+'.'+instance.name) : (instance.name);
+    var fDics = instance.fragmentDictionary.iterator();
+    while (fDics.hasNext()) {
+      var dic = fDics.next();
+      if (dic) {
+        processDictionary(instanceName, dic.values.iterator(), dic.name, instance.typeDefinition.dictionaryType);
+      }
+    }
+  }
 
-        if (instance.dictionary) {
-            processDictionary(instanceName, instance.dictionary.values.iterator(), null, instance.typeDefinition.dictionaryType);
-        }
-
-        var fDics = instance.fragmentDictionary.iterator();
-        while (fDics.hasNext()) {
-            var dic = fDics.next();
-            if (dic) {
-                processDictionary(instanceName, dic.values.iterator(), dic.name, instance.typeDefinition.dictionaryType);
-            }
-        }
+  var nodes = model.nodes.iterator();
+  while (nodes.hasNext()) {
+    var node = nodes.next();
+    if (!node.host) {
+      // only process nodes that are not hosted (hosted nodes will be processed as subNodes later)
+      processInstance(node);
     }
 
-    var nodes = model.nodes.iterator();
-    while (nodes.hasNext()) {
-        var node = nodes.next();
-        if (!node.host) {
-            // only process nodes that are not hosted (hosted nodes will be processed as subNodes later)
-            processInstance(node);
-        }
-
-        var subNodes = node.hosts.iterator();
-        while (subNodes.hasNext()) {
-            processInstance(subNodes.next(), node.name);
-        }
-
-        var comps = node.components.iterator();
-        while (comps.hasNext()) {
-            processInstance(comps.next(), node.name);
-        }
+    var subNodes = node.hosts.iterator();
+    while (subNodes.hasNext()) {
+      processInstance(subNodes.next(), node.name);
     }
 
-    var groups = model.groups.iterator();
-    while (groups.hasNext()) {
-        processInstance(groups.next());
+    var comps = node.components.iterator();
+    while (comps.hasNext()) {
+      processInstance(comps.next(), node.name);
     }
+  }
 
-    var hubs = model.hubs.iterator();
-    while (hubs.hasNext()) {
-        processInstance(hubs.next());
-    }
+  var groups = model.groups.iterator();
+  while (groups.hasNext()) {
+    processInstance(groups.next());
+  }
 
-    return str;
+  var hubs = model.hubs.iterator();
+  while (hubs.hasNext()) {
+    processInstance(hubs.next());
+  }
+
+  return str;
 };
+
 },{}],13:[function(require,module,exports){
 'use strict';
 
@@ -596,155 +594,50 @@ module.exports = function getFQN(tdef) {
   return fqn;
 };
 
-},{"semver":94}],14:[function(require,module,exports){
-/**
- * Created by leiko on 19/06/14.
- */
-module.exports.resolve = function resolve(model, stmt) {
-    var instances, i, nodes;
-
-    switch (stmt.type) {
-        case 'instancePath':
-            var children = [];
-            for (i=0; i < stmt.children.length; i++) {
-                children.push(stmt.children[i].children.join(''));
-            }
-            if (children.length < 3) {
-                if (children.length === 2) {
-                    // instance path with two segments => components or subnodes
-                    nodes = [];
-                    var subs = [];
-                    if (children[0] === '*') {
-                        var kNodes = model.nodes.iterator();
-                        while (kNodes.hasNext()) {
-                            nodes.push(kNodes.next());
-                        }
-                    } else {
-                        var kNode = model.findNodesByID(children[0]);
-                        if (kNode) {
-                            nodes.push(kNode);
-                        }
-                    }
-
-                    if (nodes.length > 0) {
-                        for (i=0; i < nodes.length; i++) {
-                            var comps = nodes[i].components.iterator();
-                            while (comps.hasNext()) {
-                                subs.push(comps.next());
-                            }
-                            var hosts = nodes[i].hosts.iterator();
-                            while (hosts.hasNext()) {
-                                subs.push(hosts.next());
-                            }
-                        }
-
-                        if (subs.length > 0) {
-                            return subs;
-                        } else {
-                            throw new Error('Unable to find '+children[1]+' in '+children[0]);
-                        }
-                    } else {
-                        throw new Error('Unable to find node '+children[0]);
-                    }
-                } else {
-                    // instance path with one segment
-                    instances = [];
-                    if (children[0] === '*') {
-                        nodes = model.nodes.iterator();
-                        while (nodes.hasNext()) {
-                            instances.push(nodes.next());
-                        }
-                        var groups = model.groups.iterator();
-                        while (groups.hasNext()) {
-                            instances.push(groups.next());
-                        }
-                        var hubs = model.hubs.iterator();
-                        while (hubs.hasNext()) {
-                            instances.push(hubs.next());
-                        }
-
-                    } else {
-                        var instance = model.findNodesByID(children[0]);
-                        if (!instance) {
-                            instance = model.findGroupsByID(children[0]);
-                        }
-                        if (!instance) {
-                            instance = model.findHubsByID(children[0]);
-                        }
-                        if (instance) {
-                            instances.push(instance);
-                        }
-                    }
-
-                    if (instances.length > 0) {
-                        return instances;
-                    } else {
-                        throw new Error('Unable to find instance '+children[0]);
-                    }
-                }
-            } else {
-                throw new Error('Namespaces are not implemented yet ('+children.join('.')+')');
-            }
-            break;
-
-        case 'nameList':
-            instances = [];
-            for (i=0; i < stmt.children.length; i++) {
-                var resolved = resolve(model, stmt.children[i]);
-                for (var j=0; j < resolved.length; j++) {
-                    instances.push(resolved[j]);
-                }
-            }
-            return instances;
-
-        default:
-            throw new Error('Unknown statement type '+stmt.type);
-    }
-};
-},{}],15:[function(require,module,exports){
+},{"semver":90}],14:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library').org.kevoree,
-    async   = require('async');
+  async = require('async');
 
 // retrieve statements processors
 var statements = {
-    addRepo:                require('./statements/addRepo'),
-    add:                    require('./statements/add'),
-    move:                   require('./statements/move'),
-    attach:                 require('./statements/attach'),
-    addBinding:             require('./statements/addBinding'),
-    delBinding:             require('./statements/delBinding'),
-    include:                require('./statements/include'),
-    set:                    require('./statements/set'),
-    network:                require('./statements/network'),
-    remove:                 require('./statements/remove'),
-    detach:                 require('./statements/detach'),
-    typeDef:                require('./statements/typeDef'),
-    typeFQN:                require('./statements/typeFQN'),
-    nameList:               require('./statements/nameList'),
-    instancePath:           require('./statements/instancePath'),
-    namespace:              require('./statements/namespace'),
-    wildcard:               require('./statements/wildcard'),
-    string:                 require('./statements/string'),
-    string2:                require('./statements/string2'),
-    string3:                require('./statements/string3'),
-    repoString:             require('./statements/repoString'),
-    version:                require('./statements/version'),
-    anything:               require('./statements/anything'),
-    realString:             require('./statements/realString'),
-    realStringNoNewLine:    require('./statements/realStringNoNewLine'),
-    newLine:                require('./statements/newLine'),
-    singleQuoteLine:        require('./statements/singleQuoteLine'),
-    doubleQuoteLine:        require('./statements/doubleQuoteLine'),
-    escaped:                require('./statements/escaped'),
-    start:                  require('./statements/start'),
-    stop:                   require('./statements/stop'),
-    pause:                  require('./statements/pause')
+  addRepo: require('./statements/addRepo'),
+  add: require('./statements/add'),
+  move: require('./statements/move'),
+  attach: require('./statements/attach'),
+  addBinding: require('./statements/addBinding'),
+  delBinding: require('./statements/delBinding'),
+  include: require('./statements/include'),
+  set: require('./statements/set'),
+  network: require('./statements/network'),
+  remove: require('./statements/remove'),
+  detach: require('./statements/detach'),
+  typeDef: require('./statements/typeDef'),
+  typeFQN: require('./statements/typeFQN'),
+  nameList: require('./statements/nameList'),
+  instancePath: require('./statements/instancePath'),
+  namespace: require('./statements/namespace'),
+  wildcard: require('./statements/wildcard'),
+  string: require('./statements/string'),
+  string2: require('./statements/string2'),
+  string3: require('./statements/string3'),
+  repoString: require('./statements/repoString'),
+  version: require('./statements/version'),
+  anything: require('./statements/anything'),
+  realString: require('./statements/realString'),
+  realStringNoNewLine: require('./statements/realStringNoNewLine'),
+  newLine: require('./statements/newLine'),
+  singleQuoteLine: require('./statements/singleQuoteLine'),
+  doubleQuoteLine: require('./statements/doubleQuoteLine'),
+  escaped: require('./statements/escaped'),
+  start: require('./statements/start'),
+  stop: require('./statements/stop'),
+  pause: require('./statements/pause')
 };
 
 var factory = new kevoree.factory.DefaultKevoreeFactory();
-var cloner  = factory.createModelCloner();
+var cloner = factory.createModelCloner();
 
 /**
  *
@@ -755,59 +648,59 @@ var cloner  = factory.createModelCloner();
  * @constructor
  */
 function interpreter(ast, ctxModel, opts, callback) {
-    // output model
-    var model = null;
+  // output model
+  var model = null;
 
-    if (ctxModel) {
-        // if we have a context model, clone it and use it has a base
-        model = cloner.clone(ctxModel, false);
-    } else {
-        // otherwise start from a brand new model
-        model = factory.createContainerRoot();
-    }
+  if (ctxModel) {
+    // if we have a context model, clone it and use it has a base
+    model = cloner.clone(ctxModel, false);
+  } else {
+    // otherwise start from a brand new model
+    model = factory.createContainerRoot();
+  }
 
-    // this ContainerRoot is the root of the model
-    factory.root(model);
+  // this ContainerRoot is the root of the model
+  factory.root(model);
 
-    var options = {
-      logger: opts.logger,
-      namespaces: {} // XXX get rid of this please.
-                     // XXX Namespaces are a no go in kevscript
-                     // XXX as they were intended in the first place.
-                     // XXX Namespace were supposed to be a way to group
-                     // XXX instances just in KevScript, but in the end no impl
-                     // XXX were made
-    };
+  var options = {
+    logger: opts.logger,
+    namespaces: {} // XXX get rid of this please.
+    // XXX Namespaces are a no go in kevscript
+    // XXX as they were intended in the first place.
+    // XXX Namespace were supposed to be a way to group
+    // XXX instances just in KevScript, but in the end no impl
+    // XXX were made
+  };
 
-    // process statements
-    var tasks = [];
-    ast.children.forEach(function (child0) {
-        child0.children.forEach(function (stmt) {
-            tasks.push(function (done) {
-                if (typeof (statements[stmt.type]) === 'function') {
-                    statements[stmt.type](model, statements, stmt, options, done);
-                } else {
-                    done(new Error('Unknown statement "'+stmt.type+'"'));
-                }
-            });
-        });
+  // process statements
+  var tasks = [];
+  ast.children.forEach(function (child0) {
+    child0.children.forEach(function (stmt) {
+      tasks.push(function (done) {
+        if (typeof (statements[stmt.type]) === 'function') {
+          statements[stmt.type](model, statements, stmt, options, done);
+        } else {
+          done(new Error('Unknown statement "' + stmt.type + '"'));
+        }
+      });
     });
+  });
 
-    // execute tasks
-    async.series(tasks, function (err) {
-        callback(err, model);
-    });
+  // execute tasks
+  async.series(tasks, function (err) {
+    callback(err, model);
+  });
 }
 
 module.exports = interpreter;
 module.exports.clearCache = function () {
-    statements.typeDef.clearCache();
+  statements.typeDef.clearCache();
 };
 module.exports.setCacheManager = function (cacheMgr) {
-    statements.typeDef.setCacheManager(cacheMgr);
+  statements.typeDef.setCacheManager(cacheMgr);
 };
 
-},{"./statements/add":20,"./statements/addBinding":21,"./statements/addRepo":22,"./statements/anything":23,"./statements/attach":24,"./statements/delBinding":25,"./statements/detach":26,"./statements/doubleQuoteLine":27,"./statements/escaped":28,"./statements/include":29,"./statements/instancePath":30,"./statements/move":31,"./statements/nameList":32,"./statements/namespace":33,"./statements/network":34,"./statements/newLine":35,"./statements/pause":36,"./statements/realString":37,"./statements/realStringNoNewLine":38,"./statements/remove":39,"./statements/repoString":40,"./statements/set":41,"./statements/singleQuoteLine":42,"./statements/start":43,"./statements/stop":44,"./statements/string":45,"./statements/string2":46,"./statements/string3":47,"./statements/typeDef":48,"./statements/typeFQN":49,"./statements/version":50,"./statements/wildcard":51,"async":53,"kevoree-library":"kevoree-library"}],16:[function(require,module,exports){
+},{"./statements/add":19,"./statements/addBinding":20,"./statements/addRepo":21,"./statements/anything":22,"./statements/attach":23,"./statements/delBinding":24,"./statements/detach":25,"./statements/doubleQuoteLine":26,"./statements/escaped":27,"./statements/include":28,"./statements/instancePath":29,"./statements/move":30,"./statements/nameList":31,"./statements/namespace":32,"./statements/network":33,"./statements/newLine":34,"./statements/pause":35,"./statements/realString":36,"./statements/realStringNoNewLine":37,"./statements/remove":38,"./statements/repoString":39,"./statements/set":40,"./statements/singleQuoteLine":41,"./statements/start":42,"./statements/stop":43,"./statements/string":44,"./statements/string2":45,"./statements/string3":46,"./statements/typeDef":47,"./statements/typeFQN":48,"./statements/version":49,"./statements/wildcard":50,"async":52,"kevoree-library":"kevoree-library"}],15:[function(require,module,exports){
 'use strict';
 
 function findChanNodeGroupByName(model, name) {
@@ -841,7 +734,7 @@ module.exports = {
   findComponentByName: findComponent
 };
 
-},{}],17:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 var repos       = require('./elements/repositories'),
     includes    = require('./elements/includes'),
     instances   = require('./elements/instances'),
@@ -879,7 +772,7 @@ module.exports = function (model) {
 
     return kevscript.replace(/^([\n\t\r])+/, '').replace(/([\n\t\r])+$/, '\n');
 };
-},{"./elements/attaches":5,"./elements/bindings":6,"./elements/includes":7,"./elements/instances":8,"./elements/lifecycles":9,"./elements/networks":10,"./elements/repositories":11,"./elements/sets":12}],18:[function(require,module,exports){
+},{"./elements/attaches":5,"./elements/bindings":6,"./elements/includes":7,"./elements/instances":8,"./elements/lifecycles":9,"./elements/networks":10,"./elements/repositories":11,"./elements/sets":12}],17:[function(require,module,exports){
 /*
  * Generated by the Waxeye Parser Generator - version 0.8.0
  * www.waxeye.org
@@ -1271,7 +1164,7 @@ if (typeof module !== 'undefined') {
     module.exports.Parser = Parser;
 }
 
-},{"waxeye":105}],19:[function(require,module,exports){
+},{"waxeye":101}],18:[function(require,module,exports){
 var CHARS = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 module.exports = function shortid() {
@@ -1282,35 +1175,30 @@ module.exports = function shortid() {
     return id;
 };
 
-},{}],20:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 'use strict';
 
-var kevoree = require('kevoree-library').org.kevoree;
-var factory = new kevoree.factory.DefaultKevoreeFactory();
-var Kotlin  = require('kevoree-kotlin');
-var getFQN  = require('../getFQN');
+var kevoree = require('kevoree-library');
 
 function inflateDictionary(instance) {
-    var dicType = instance.typeDefinition.dictionaryType;
-    if (dicType) {
-        var dic = factory.createDictionary();
-        var attrs = dicType.attributes.iterator();
-        while (attrs.hasNext()) {
-            var attr = attrs.next();
-            if (!attr.fragmentDependant && !attr.optional && typeof attr.defaultValue !== 'undefined') {
-                var val = factory.createValue();
-                val.name = attr.name;
-                val.value = attr.defaultValue;
-                dic.addValues(val);
-            }
-        }
-        if (dic.values.size() > 0) {
-            instance.dictionary = dic;
-        }
-    }
+  var factory = new kevoree.factory.DefaultKevoreeFactory();
+  var dicType = instance.typeDefinition.dictionaryType;
+  if (dicType) {
+    var dic = factory.createDictionary().withGenerated_KMF_ID(0);
+    dicType.attributes.array.forEach(function (attr) {
+      if (!attr.fragmentDependant && attr.defaultValue) {
+        var dicEntry = factory.createValue();
+        dicEntry.name = attr.name;
+        dicEntry.value = attr.defaultValue;
+        dic.addValues(dicEntry);
+      }
+    });
+    instance.dictionary = dic;
+  }
 }
 
 function createPorts(comp) {
+  var factory = new kevoree.factory.DefaultKevoreeFactory();
   comp.typeDefinition.provided.array.forEach(function (portType) {
     var port = factory.createPort();
     port.name = portType.name;
@@ -1326,1440 +1214,1218 @@ function createPorts(comp) {
   });
 }
 
-module.exports = function (model, statements, stmt, opts, done) {
-    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
-    statements[stmt.children[1].type](model, statements, stmt.children[1], opts, function (err, tDef) {
-        if (err) {
-            done(err);
-        } else {
-            // add node instance function
-            function addNodeInstance(namespace, nodeName, parentNode) {
-                if (nodeName !== '*') {
-                    var node = factory.createContainerNode();
-                    node.name = nodeName;
-                    node.typeDefinition = model.findByPath(tDef.path());
-                    node.started = true;
-                    inflateDictionary(node);
-                    model.addNodes(node);
-                    if (parentNode) {
-                        parentNode.addHosts(node);
-                    }
-
-                    if (namespace) {
-                        if (opts.namespaces[namespace]) {
-                            opts.namespaces[namespace][nodeName] = node;
-                        } else {
-                            done(new Error('Unable to find "'+namespace+'" namespace. Did you create it? (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                        }
-                    }
-                } else {
-                    done(new Error('You cannot name a node instance "*" (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                }
-            }
-
-            // create proper entity according to the type
-            if (Kotlin.isType(tDef, kevoree.NodeType)) {
-                for (var i in nameList) {
-                    nameList[i].expect(1, 3, function (err, namespace, parentName, childName) {
-                        if (err) {
-                            err.message += ' (add '+nameList[i].toString()+' : '+getFQN(tDef)+')';
-                            done(err);
-                            return;
-                        }
-
-                        if (namespace) {
-                            // TODO handle namespaces
-                            done(new Error('Namespaces are not handled yet'));
-                        } else {
-                            if (parentName) {
-                                if (parentName === '*') {
-                                    // parentName can't be '*' because each node name must be unique within a model so you can't
-                                    // duplicate the same childName on each parentNode
-                                    done(new Error('You can not refer to all node instances with \'*\' when adding child node instances. (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                                } else {
-                                    var parentNode = model.findNodesByID(parentName);
-                                    if (parentNode) {
-                                        addNodeInstance(namespace, childName, parentNode);
-
-                                    } else {
-                                        done(new Error('Unable to find parent node instance "'+parentName+'" in model. Did you create it? (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                                    }
-                                }
-
-                            } else {
-                                addNodeInstance(namespace, childName);
-                            }
-                        }
-                    });
-                }
-
-            } else if (Kotlin.isType(tDef, kevoree.GroupType)) {
-                for (var i in nameList) {
-                    nameList[i].expect(1, 2, function (err, namespace, instanceName) {
-                        if (err) {
-                            err.message += ' (add '+nameList[i].toString()+' : '+getFQN(tDef)+')';
-                            done(err);
-                            return;
-                        }
-
-                        if (instanceName !== '*') {
-                            var group = factory.createGroup();
-                            group.name = instanceName;
-                            group.typeDefinition = model.findByPath(tDef.path());
-                            group.started = true;
-                            inflateDictionary(group);
-                            model.addGroups(group);
-
-                            if (namespace) {
-                                if (opts.namespaces[namespace]) {
-                                    opts.namespaces[namespace][instanceName] = group;
-                                } else {
-                                    done(new Error('Unable to find "'+namespace+'" namespace. Did you create it? (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                                }
-                            }
-                        } else {
-                            done(new Error('You cannot name a node instance "*" (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                        }
-                    });
-                }
-
-            } else if (Kotlin.isType(tDef, kevoree.ChannelType)) {
-                for (var i in nameList) {
-                    nameList[i].expect(1, 2, function (err, namespace, instanceName) {
-                        if (err) {
-                            err.message += ' (add '+nameList[i].toString()+' : '+getFQN(tDef)+')';
-                            done(err);
-                            return;
-                        }
-
-                        if (instanceName !== '*') {
-                            var chan = factory.createChannel();
-                            chan.name = instanceName;
-                            chan.typeDefinition = model.findByPath(tDef.path());
-                            chan.started = true;
-                            inflateDictionary(chan);
-                            model.addHubs(chan);
-
-                            if (namespace) {
-                                if (opts.namespaces[namespace]) {
-                                    opts.namespaces[namespace][instanceName] = chan;
-                                } else {
-                                    done(new Error('Unable to find "'+namespace+'" namespace. Did you create it? (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                                }
-                            }
-                        } else {
-                            done(new Error('You cannot name a node instance "*" (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                        }
-                    });
-                }
-
-            } else if (Kotlin.isType(tDef, kevoree.ComponentType)) {
-                for (var i in nameList) {
-                    nameList[i].expect(2, 3, function (err, namespace, nodeName, compName) {
-                        if (err) {
-                            done(new Error('Component instances must be added to Node instances (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                            return;
-                        }
-
-                        if (namespace) {
-                            // TODO handle namespace
-                            done(new Error('Namespaces are not handled yet :/ Sorry'));
-
-                        } else if (compName === '*') {
-                            done(new Error('You cannot name a component instance "*" (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-
-                        } else {
-                            var comp;
-                            if (nodeName === '*') {
-                                // add compName instance to all nodes in the model
-                                var nodes = model.nodes.iterator();
-                                while (nodes.hasNext()) {
-                                    comp = factory.createComponentInstance();
-                                    comp.name = compName;
-                                    comp.typeDefinition = model.findByPath(tDef.path());;
-                                    comp.started = true;
-                                    inflateDictionary(comp);
-                                    createPorts(comp);
-                                    nodes.next().addComponents(comp);
-                                }
-
-                            } else {
-                                var node = model.findNodesByID(nodeName);
-                                if (node) {
-                                    comp = factory.createComponentInstance();
-                                    comp.name = compName;
-                                    comp.typeDefinition = model.findByPath(tDef.path());;
-                                    comp.started = true;
-                                    inflateDictionary(comp);
-                                    createPorts(comp);
-                                    node.addComponents(comp);
-
-                                } else {
-                                    done(new Error('Unable to find container node "'+nodeName+'" in current model (add '+nameList[i].toString()+' : '+getFQN(tDef)+')'));
-                                }
-                            }
-                        }
-                    });
-                }
-
+module.exports = function (model, statements, stmt, opts, cb) {
+  var factory = new kevoree.factory.DefaultKevoreeFactory();
+  var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
+  statements[stmt.children[1].type](model, statements, stmt.children[1], opts, function (err, tdef) {
+    if (err) {
+      cb(err);
+    } else {
+      var error;
+      try {
+        nameList.forEach(function (instancePath) {
+          var instance;
+          if (instancePath.length === 1) {
+            // node / chan / group
+            if (tdef.metaClassName() === 'org.kevoree.NodeType') {
+              instance = factory.createContainerNode();
+              instance.name = instancePath[0];
+              instance.started = true;
+              instance.typeDefinition = tdef;
+              inflateDictionary(instance);
+              model.addNodes(instance);
+            } else if (tdef.metaClassName() === 'org.kevoree.GroupType') {
+              instance = factory.createGroup();
+              instance.name = instancePath[0];
+              instance.started = true;
+              instance.typeDefinition = tdef;
+              inflateDictionary(instance);
+              model.addGroups(instance);
+            } else if (tdef.metaClassName() === 'org.kevoree.ChannelType') {
+              instance = factory.createChannel();
+              instance.name = instancePath[0];
+              instance.started = true;
+              instance.typeDefinition = tdef;
+              inflateDictionary(instance);
+              model.addHubs(instance);
             } else {
-                done(new Error('TypeDefinition "'+tDef.name+'/'+tDef.version+'" doesn\'t exist in current model. (Maybe you should add an "include" for it?)'));
-                return;
+              throw new Error('Unable to find a node, channel or group with name "' + instancePath + '"');
             }
-            done();
-        }
-    });
+
+          } else if (instancePath.length === 2) {
+            // component/subNode
+            if (tdef.metaClassName() === 'org.kevoree.NodeType') {
+              if (instancePath[0] === '*') {
+                throw new Error('Add statement with "*" only works for component type');
+              } else {
+                // add a subNode to a node
+                var hostNode = model.findNodesByID(instancePath[0]);
+                if (hostNode) {
+                  instance = factory.createContainerNode();
+                  instance.name = instancePath[1];
+                  instance.started = true;
+                  instance.typeDefinition = tdef;
+                  inflateDictionary(instance);
+                  hostNode.addHosts(instance);
+                  instance.host = hostNode;
+                  model.addNodes(instance);
+                } else {
+                  throw new Error('Unable to add node "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist');
+                }
+              }
+            } else if (tdef.metaClassName() === 'org.kevoree.ComponentType') {
+              if (instancePath[0] === '*') {
+                // add component to all non-hosted nodes
+                model.nodes.array.forEach(function (node) {
+                  if (!node.host) {
+                    instance = factory.createComponentInstance();
+                    instance.name = instancePath[1];
+                    instance.started = true;
+                    instance.typeDefinition = tdef;
+                    inflateDictionary(instance);
+                    createPorts(instance);
+                    node.addComponents(instance);
+                  }
+                });
+              } else {
+                // add a component to a node
+                var node = model.findNodesByID(instancePath[0]);
+                if (node) {
+                  instance = factory.createComponentInstance();
+                  instance.name = instancePath[1];
+                  instance.started = true;
+                  instance.typeDefinition = tdef;
+                  inflateDictionary(instance);
+                  createPorts(instance);
+                  node.addComponents(instance);
+                } else {
+                  throw new Error('Unable to add component "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist');
+                }
+              }
+            } else {
+              throw new Error('Instance "' + instancePath[1]+ '" of type ' + tdef.metaClassName() + ' cannot be added to a node');
+            }
+          } else {
+            throw new Error('Instance path for "add" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid');
+          }
+        });
+      } catch (err) {
+        error = err;
+      } finally {
+        cb(error);
+      }
+    }
+  });
 };
 
-},{"../getFQN":13,"kevoree-kotlin":66,"kevoree-library":"kevoree-library"}],21:[function(require,module,exports){
+},{"kevoree-library":"kevoree-library"}],20:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
-var factory = new kevoree.factory.DefaultKevoreeFactory();
+
+function hasBinding(model, chan, port) {
+  return model.mBindings.array.some(function (binding) {
+    if (binding.hub && binding.port) {
+      return binding.hub.name === chan.name && binding.port.path() === port.path();
+    }
+  });
+}
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  var port = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-  var chan = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
+  var portPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+  var target = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
 
-  function addBinding2(portName, comp, node, chanInst) {
-    // start with an undefined portInst
-    var portInst;
-
-    // now lets try to find a Port instance in this component provided ports
-    portInst = comp.findProvidedByID(portName);
-    if (!portInst) {
-      // if we can't find it in provided ports, lets try in required
-      portInst = comp.findRequiredByID(portName);
-    }
-    if (!portInst) {
-      // reaching this point means that we were not able to find any port instance
-      // matching this portName, so we have to create a brand new port instance
-      portInst = factory.createPort();
-      // lets try to find a PortTypeRef in the component TypeDefinition provided ports that matches portName
-      var inputRefs = comp.typeDefinition.provided.iterator();
-      while (inputRefs.hasNext()) {
-        var inRef = inputRefs.next();
-        if (inRef.name === portName) {
-          // bingo, add it the the comp instance
-          portInst.portTypeRef = inRef;
-          portInst.name = portName;
-          comp.addProvided(portInst);
-          break;
-        }
-      }
-      if (!portInst.portTypeRef) {
-        // well, it isn't a provided port obviously, so now lets try to find out if it is a required
-        var outputRefs = comp.typeDefinition.required.iterator();
-        while (outputRefs.hasNext()) {
-          var outRef = outputRefs.next();
-          if (outRef.name === portName) {
-            // bingo, add it to the comp instance
-            portInst.portTypeRef = outRef;
-            portInst.name = portName;
-            comp.addRequired(portInst);
-            break;
-          }
-        }
-      }
-    }
-
-    if (portInst && portInst.portTypeRef && portInst.name === portName) {
-      var bindings = model.mBindings.iterator();
-      var alreadyBound = false;
-      while (bindings.hasNext()) {
-        var binding = bindings.next();
-        if (binding.hub.name === chanInst.name &&
-          binding.port.name === portName &&
-          binding.port.eContainer().name === comp.name &&
-          binding.port.eContainer().eContainer().name === node.name) {
-          alreadyBound = true;
-          break;
-        }
-      }
-
-      if (!alreadyBound) {
-        binding = factory.createMBinding();
-        binding.port = portInst;
-        binding.hub = chanInst;
-        model.addMBindings(binding);
-      }
-    } else {
-      // seems like you are trying to connect a port that do not belong to the comp you referred to
-      throw new Error('Unable to find port "' + portName + '" in component ' + comp.typeDefinition.name + '[' + comp.name + '] (bind ' + port.toString() + ' ' + chan.toString() + ')');
-    }
-  }
-
-  function addBinding1(portName, compName, node, chanInst) {
-    var comp = node.findComponentsByID(compName);
-    if (comp) {
-      if (portName === '*') {
-        var inputRefs = comp.typeDefinition.provided.iterator();
-        while (inputRefs.hasNext()) {
-          addBinding2(inputRefs.next().name, comp, node, chanInst);
-        }
-        var outputRefs = comp.typeDefinition.required.iterator();
-        while (outputRefs.hasNext()) {
-          addBinding2(outputRefs.next().name, comp, node, chanInst);
-        }
-
+  var error;
+  try {
+    var chans = [];
+    if (target.length === 1) {
+      if (target[0] === '*') {
+        chans = model.hubs.array;
       } else {
-        addBinding2(portName, comp, node, chanInst);
-      }
-    } else {
-      throw new Error('Unable to find component instance "' + compName + '" in node "' + node.name + '" (bind ' + port.toString() + ' ' + chan.toString() + ')');
-    }
-  }
-
-  function addBinding0(portName, compName, nodeName, chanInst) {
-    var node = model.findNodesByID(nodeName);
-    if (node) {
-      if (compName === '*') {
-        var compz = node.components.iterator();
-        while (compz.hasNext()) {
-          addBinding1(portName, compz.next().name, node, chanInst);
-        }
-
-      } else {
-        addBinding1(portName, compName, node, chanInst);
-      }
-    } else {
-      throw new Error('Unable to find node instance "' + nodeName + '" in model (bind ' + port.toString() + ' ' + chan.toString() + ')');
-    }
-  }
-
-  function bindPortToChan(chanInst) {
-    port.expect(3, 4, function (err, namespace, nodeName, compName, portName) {
-      if (err) {
-        err.message += ' (bind ' + port.toString() + ' ' + chan.toString() + ')';
-        cb(err);
-      } else {
-        if (namespace) {
-          // TODO
-          throw new Error('Namespaces are not handled yet :/ Sorry (bind ' + port.toString() + ' ' + chan.toString() + ')');
-
+        var chan = model.findHubsByID(target[0]);
+        if (chan) {
+          chans.push(chan);
         } else {
-          if (nodeName === '*') {
-            var nodes = model.nodes.iterator();
-            while (nodes.hasNext()) {
-              addBinding0(portName, compName, nodes.next().name, chanInst);
-            }
+          throw new Error('Unable to find chan instance "'+target[0]+'". Bind failed');
+        }
+      }
+    } else {
+      throw new Error('Bind target path is invalid ('+target.join('.')+')');
+    }
 
+    var nodes = [];
+    if (portPath.length === 3) {
+      if (portPath[0] === '*') {
+        // all nodes
+        nodes = model.nodes.array;
+      } else {
+        // specific node
+        var node = model.findNodesByID(portPath[0]);
+        if (node) {
+          nodes.push(node);
+        } else {
+          throw new Error('Unable to find node instance "'+portPath[0]+'". Bind failed');
+        }
+      }
+    } else {
+      throw new Error('"'+portPath.join('.')+'" is not a valid bind path for a port');
+    }
+
+    var components = [];
+    nodes.forEach(function (node) {
+      if (portPath[1] === '*') {
+        // all components
+        components = components.concat(node.components.array);
+      } else {
+        var comp = node.findComponentsByID(portPath[1]);
+        if (comp) {
+          components.push(comp);
+        } else {
+          throw new Error('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Bind failed');
+        }
+      }
+    });
+
+    var ports = [];
+    components.forEach(function (comp) {
+      if (portPath[2] === '*') {
+        // all ports
+        ports = ports.concat(comp.provided.array).concat(comp.required.array);
+      } else {
+        var port = comp.findProvidedByID(portPath[2]);
+        if (port) {
+          // add input
+          ports.push(port);
+        } else {
+          port = comp.findRequiredByID(portPath[2]);
+          if (port) {
+            // add output
+            ports.push(port);
           } else {
-            addBinding0(portName, compName, nodeName, chanInst);
+            throw new Error('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Bind failed');
           }
         }
       }
     });
-  }
 
-  chan.expect(1, 2, function (err, namespace, name) {
-    if (err) {
-      err.message += ' (bind ' + port.toString() + ' ' + chan.toString() + ')';
-      cb(err);
-    } else {
-      if (namespace) {
-        cb(new Error('Namespaces are not handled yet :/ Sorry (bind ' + port.toString() + ' ' + chan.toString() + ')'));
-
-      } else {
-        if (name === '*') {
-          var chanz = model.hubs.iterator();
-          try {
-            while (chanz.hasNext()) {
-              bindPortToChan(chanz.next());
-            }
-            cb();
-          } catch (err) {
-            cb(err);
-          }
-
-        } else {
-          var chanInst = model.findHubsByID(name);
-          if (chanInst) {
-            try {
-              bindPortToChan(chanInst);
-              cb();
-            } catch (err) {
-              cb(err);
-            }
-
-          } else {
-            cb(new Error('Unable to find target channel instance "' + name + '" (bind ' + port.toString() + ' ' + chan.toString() + ')'));
-          }
+    var factory = new kevoree.factory.DefaultKevoreeFactory();
+    chans.forEach(function (chan) {
+      ports.forEach(function (port) {
+        if (!hasBinding(model, chan, port)) {
+          var binding = factory.createMBinding();
+          binding.hub = chan;
+          binding.port = port;
+          chan.addBindings(binding);
+          port.addBindings(binding);
+          model.addMBindings(binding);
         }
-      }
-    }
-  });
+      });
+    });
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
+};
+
+},{"kevoree-library":"kevoree-library"}],21:[function(require,module,exports){
+'use strict';
+
+var kevoree = require('kevoree-library');
+
+module.exports = function (model, statements, stmt, opts, cb) {
+  var factory = new kevoree.factory.DefaultKevoreeFactory();
+  var url = statements[stmt.children[0].type](model, statements, stmt, opts, cb);
+
+  // create repository & add it to model
+  var repo = factory.createRepository();
+  repo.url = url;
+  model.addRepositories(repo);
+
+  cb();
 };
 
 },{"kevoree-library":"kevoree-library"}],22:[function(require,module,exports){
-var kevoree = require('kevoree-library').org.kevoree;
-var factory = new kevoree.factory.DefaultKevoreeFactory();
+'use strict';
 
-module.exports = function (model, statements, stmt, opts, cb) {
-    var url = statements[stmt.children[0].type](model, statements, stmt, opts, cb);
-
-    // create repository & add it to model
-    var repo = factory.createRepository();
-    repo.url = url;
-    model.addRepositories(repo);
-
-    cb();
-};
-},{"kevoree-library":"kevoree-library"}],23:[function(require,module,exports){
 module.exports = function (model, statements, stmt) {
   return stmt.children.join('');
+};
+
+},{}],23:[function(require,module,exports){
+'use strict';
+
+var kevoree = require('kevoree-library');
+
+function processFragmentDictionary(node) {
+  var factory = new kevoree.factory.DefaultKevoreeFactory();
+  node.groups.array.forEach(function (group) {
+    var fDic = group.findFragmentDictionaryByID(node.name);
+    if (!fDic) {
+      fDic = factory.createFragmentDictionary();
+      fDic.name = node.name;
+      group.addFragmentDictionary(fDic);
+    }
+    var dicType = group.typeDefinition.dictionaryType;
+    if (dicType) {
+      dicType.attributes.array.forEach(function (attr) {
+        if (attr.fragmentDependant && attr.defaultValue) {
+          var entry = factory.createValue();
+          entry.name = attr.name;
+          entry.value = attr.defaultValue;
+          fDic.addValues(entry);
+        }
+      });
+    }
+  });
+
+  node.components.array.forEach(function (comp) {
+    comp.provided.array.concat(comp.required.array).forEach(function (port) {
+      port.bindings.array.forEach(function (binding) {
+        if (binding.hub) {
+          var fDic = binding.hub.findFragmentDictionaryByID(node.name);
+          if (!fDic) {
+            fDic = factory.createFragmentDictionary();
+            fDic.name = node.name;
+            binding.hub.addFragmentDictionary(fDic);
+          }
+          var dicType = binding.hub.typeDefinition.dictionaryType;
+          if (dicType) {
+            dicType.attributes.array.forEach(function (attr) {
+              if (attr.fragmentDependant && attr.defaultValue) {
+                var entry = factory.createValue();
+                entry.name = attr.name;
+                entry.value = attr.defaultValue;
+                fDic.addValues(entry);
+              }
+            });
+          }
+        }
+      });
+    });
+  });
 }
-},{}],24:[function(require,module,exports){
+
 module.exports = function (model, statements, stmt, opts, cb) {
   var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
   var target   = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
 
-  function addNodeToGroup(group) {
-    for (var i=0; i < nameList.length; i++) {
-      nameList[i].expect(1, 2, function (err, namespace, nodeName) {
-        if (err) {
-          err.message += ' (attach '+nameList.toString()+' '+target.toString()+')';
-          return cb(err);
-        }
-
-        if (namespace) {
-          // TODO
-          return cb(new Error('Namespaces are not handled yet :/ Sorry (attach '+nameList.toString()+' '+target.toString()+')'));
-
+  var error;
+  try {
+    var groups = [];
+    if (target.length === 1) {
+      if (target[0] === '*') {
+        groups = model.groups.array;
+      } else {
+        var group = model.findGroupsByID(target[0]);
+        if (group) {
+          groups.push(group);
         } else {
-          if (nodeName === '*') {
-            // attach all nodes to group
-            var nodes = model.nodes.iterator();
-            while (nodes.hasNext()) group.addSubNodes(nodes.next());
+          throw new Error('Unable to find group instance "'+target[0]+'". Attach failed');
+        }
+      }
+    } else {
+      throw new Error('Attach target path is invalid ('+target.join('.')+')');
+    }
 
-          } else {
-            var node = model.findNodesByID(nodeName);
-            if (node) {
+    nameList.forEach(function (instancePath) {
+      if (instancePath.length === 1) {
+        if (instancePath[0] === '*') {
+          // attach all nodes to target groups
+          model.nodes.array.forEach(function (node) {
+            groups.forEach(function (group) {
+              node.addGroups(group);
               group.addSubNodes(node);
-            } else {
-              return cb(new Error('Unable to find node "'+nodeName+'" in model (attach '+nameList.toString()+' '+target.toString()+')'));
-            }
+            });
+            processFragmentDictionary(node);
+          });
+        } else {
+          // attach a specific node to target groups
+          var node = model.findNodesByID(instancePath[0]);
+          if (node) {
+            groups.forEach(function (group) {
+              node.addGroups(group);
+              group.addSubNodes(node);
+            });
+            processFragmentDictionary(node);
+          } else {
+            throw new Error('Unable to attach node instance "'+instancePath[0]+'". Instance does not exist');
           }
         }
-      });
-    }
-  }
-
-  target.expect(1, 2, function (err, namespace, name) {
-    if (err) {
-      err.message += ' (attach '+nameList.toString()+' '+target.toString()+')';
-      return cb(err);
-    }
-
-    if (namespace) {
-      // TODO
-      return cb(new Error('Namespaces are not handled yet :/ Sorry (attach '+nameList.toString()+' '+target.toString()+')'));
-
-    } else {
-      if (name === '*') {
-        var groups = model.groups.iterator();
-        while (groups.hasNext()) addNodeToGroup(groups.next());
-
       } else {
-        var group = model.findGroupsByID(name);
-        if (group) {
-          addNodeToGroup(group);
+        throw new Error('"'+instancePath.join('.')+'" is not a valid attach path for a node');
+      }
+    });
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
+};
 
-        } else {
-          return cb(new Error('Unable to find group "'+name+'" in model (attach '+nameList.toString()+' '+target.toString()+')'));
-        }
+},{"kevoree-library":"kevoree-library"}],24:[function(require,module,exports){
+'use strict';
+
+function getBindings(model, chan, port) {
+  return model.mBindings.array.filter(function (binding) {
+    if (binding.hub && binding.port) {
+      if (binding.hub.name === chan.name && binding.port.path() === port.path()) {
+        return binding;
       }
     }
   });
-
-  cb();
 }
-},{}],25:[function(require,module,exports){
+
 module.exports = function (model, statements, stmt, opts, cb) {
-    var port = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-    var chan = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
+  var portPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+  var target = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
 
-    function unbindPortFromChan2(portName, comp, node, chanName) {
-        var bindings = model.mBindings.iterator();
-        while (bindings.hasNext()) {
-            var binding = bindings.next();
-            if (binding.port.portTypeRef.name === portName &&                // binding's port matches portName
-                binding.port.eContainer().name === comp.name &&              // port's component matches comp.name
-                binding.port.eContainer().eContainer().name === node.name && // component's container matches node.name
-                binding.hub.name === chanName) {                             // binding's hub name matches chanName
-
-                if (binding.port) binding.port.removeBindings(binding);
-                if (binding.hub)  binding.hub.removeBindings(binding);
-                model.removeMBindings(binding);
-            }
-        }
-    }
-
-    function unbindPortFromChan1(portName, comp, node, chanName) {
-        if (portName === '*') {
-            var inputRefs = comp.typeDefinition.provided.iterator();
-            var outputRefs = comp.typeDefinition.required.iterator();
-
-            while (inputRefs.hasNext()) {
-                unbindPortFromChan2(inputRefs.next().name, comp, node, chanName);
-            }
-
-            while (outputRefs.hasNext()) {
-                unbindPortFromChan2(outputRefs.next().name, comp, node, chanName);
-            }
-
+  var error;
+  try {
+    var chans = [];
+    if (target.length === 1) {
+      if (target[0] === '*') {
+        chans = model.hubs.array;
+      } else {
+        var chan = model.findHubsByID(target[0]);
+        if (chan) {
+          chans.push(chan);
         } else {
-            unbindPortFromChan2(portName, comp, node, chanName);
+          throw new Error('Unable to find chan instance "'+target[0]+'". Unbind failed');
         }
+      }
+    } else {
+      throw new Error('Unbind target path is invalid ('+target.join('.')+')');
     }
 
-    function unbindPortFromChan0(portName, compName, node, chanName) {
-        if (compName === '*') {
-            var compz = node.components.iterator();
-            while (compz.hasNext()) {
-                unbindPortFromChan1(portName, compz.next(), node, chanName);
-            }
-
+    var nodes = [];
+    if (portPath.length === 3) {
+      if (portPath[0] === '*') {
+        // all nodes
+        nodes = model.nodes.array;
+      } else {
+        // specific node
+        var node = model.findNodesByID(portPath[0]);
+        if (node) {
+          nodes.push(node);
         } else {
-            var comp = node.findComponentsByID(compName);
-            if (comp) {
-                unbindPortFromChan1(portName, comp, node, chanName);
-            } else {
-                throw new Error('Unable to find component instance "'+compName+'" in node instance "'+node.name+'" (unbind '+port.toString()+' '+chan.toString()+')');
-            }
+          throw new Error('Unable to find node instance "'+portPath[0]+'". Unbind failed');
         }
+      }
+    } else {
+      throw new Error('"'+portPath.join('.')+'" is not a valid unbind path for a port');
     }
 
-    function preUnbindProcess(chanInst) {
-        port.expect(3, 4, function (err, namespace, nodeName, compName, portName) {
-            if (err) {
-                err.message += ' (unbind '+port.toString()+' '+chan.toString()+')';
-                return cb(err);
-            }
-
-            if (namespace) {
-                // TODO
-                throw new Error('Namespaces are not handled yet :/ Sorry (unbind '+port.toString()+' '+chan.toString()+')');
-
-            } else {
-                if (nodeName === '*') {
-                    var nodes = model.nodes.iterator();
-                    while (nodes.hasNext()) {
-                        unbindPortFromChan0(portName, compName, nodes.next(), chanInst.name);
-                    }
-
-                } else {
-                    var node = model.findNodesByID(nodeName);
-                    if (node) {
-                        unbindPortFromChan0(portName, compName, node, chanInst.name);
-                    } else {
-                        throw new Error('Unable to find node instance "'+nodeName+'" in model (unbind '+port.toString()+' '+chan.toString()+')');
-                    }
-                }
-            }
-        });
-    }
-
-    chan.expect(1, 2, function (err, namespace, name) {
-        if (err) {
-            err.message += ' (unbind '+port.toString()+' '+chan.toString()+')';
-            cb(err);
-        }
-
-        if (namespace) {
-            // TODO
-            cb(new Error('Namespaces are not handled yet :/ Sorry (unbind '+port.toString()+' '+chan.toString()+')'));
-
+    var components = [];
+    nodes.forEach(function (node) {
+      if (portPath[1] === '*') {
+        // all components
+        components = components.concat(node.components.array);
+      } else {
+        var comp = node.findComponentsByID(portPath[1]);
+        if (comp) {
+          components.push(comp);
         } else {
-            if (name === '*') {
-                var chanz = model.hubs.iterator();
-                try {
-                  while (chanz.hasNext()) {
-                      preUnbindProcess(chanz.next());
-                  }
-                  cb();
-                } catch (err) {
-                  cb(err);
-                }
-
-            } else {
-                var chanInst = model.findHubsByID(name);
-                if (chanInst) {
-                    try {
-                      preUnbindProcess(chanInst);
-                      cb();
-                    } catch (err) {
-                      cb(err);
-                    }
-                } else {
-                    cb(new Error('Unable to find channel instance "'+name+'" in model (unbind '+port.toString()+' '+chan.toString()+')'));
-                }
-            }
+          throw new Error('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Unbind failed');
         }
+      }
     });
+
+    var ports = [];
+    components.forEach(function (comp) {
+      if (portPath[2] === '*') {
+        // all ports
+        ports = ports.concat(comp.provided.array).concat(comp.required.array);
+      } else {
+        var port = comp.findProvidedByID(portPath[2]);
+        if (port) {
+          // add input
+          ports.push(port);
+        } else {
+          port = comp.findRequiredByID(portPath[2]);
+          if (port) {
+            // add output
+            ports.push(port);
+          } else {
+            throw new Error('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Unbind failed');
+          }
+        }
+      }
+    });
+
+    chans.forEach(function (chan) {
+      ports.forEach(function (port) {
+        getBindings(model, chan, port).forEach(function (binding) {
+            if (binding.hub) {
+              binding.hub.removeBindings(binding);
+            }
+            if (binding.port) {
+              binding.port.removeBindings(binding);
+            }
+            model.removeMBindings(binding);
+        });
+      });
+    });
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
+};
+
+},{}],25:[function(require,module,exports){
+'use strict';
+
+function processFragmentDictionary(node) {
+  node.groups.array.forEach(function (group) {
+    var fDic = group.findFragmentDictionaryByID(node.name);
+    if (fDic) {
+      fDic.delete();
+    }
+  });
+
+  node.components.array.forEach(function (comp) {
+    comp.provided.array.concat(comp.required.array).forEach(function (port) {
+      port.bindings.array.forEach(function (binding) {
+        if (binding.hub) {
+          var fDic = binding.hub.findFragmentDictionaryByID(node.name);
+          if (fDic) {
+            fDic.delete();
+          }
+        }
+      });
+    });
+  });
 }
+
+module.exports = function (model, statements, stmt, opts, cb) {
+  var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
+  var target = statements[stmt.children[1].type](model, statements, stmt.children[1], opts);
+
+  var error;
+  try {
+    var groups = [];
+    if (target.length === 1) {
+      if (target[0] === '*') {
+        groups = model.groups.array;
+      } else {
+        var group = model.findGroupsByID(target[0]);
+        if (group) {
+          groups.push(group);
+        } else {
+          throw new Error('Unable to find group instance "'+target[0]+'". Detach failed');
+        }
+      }
+    } else {
+      throw new Error('Detach target path is invalid ('+target.join('.')+')');
+    }
+
+    nameList.forEach(function (instancePath) {
+      if (instancePath.length === 1) {
+        if (instancePath[0] === '*') {
+          // detach all nodes to target groups
+          model.nodes.array.forEach(function (node) {
+            processFragmentDictionary(node);
+            groups.forEach(function (group) {
+              node.removeGroups(group);
+              group.removeSubNodes(node);
+            });
+          });
+        } else {
+          // detach a specific node to target groups
+          var node = model.findNodesByID(instancePath[0]);
+          if (node) {
+            processFragmentDictionary(node);
+            groups.forEach(function (group) {
+              node.removeGroups(group);
+              group.removeSubNodes(node);
+            });
+          } else {
+            throw new Error('Unable to detach node instance "'+instancePath[0]+'". Instance does not exist');
+          }
+        }
+      } else {
+        throw new Error('"'+instancePath.join('.')+'" is not a valid detach path for a node');
+      }
+    });
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
+};
 
 },{}],26:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],27:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],28:[function(require,module,exports){
+'use strict';
+
 module.exports = function (model, statements, stmt, opts, cb) {
-    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
-    var groupName = statements[stmt.children[1].type](model, statements, stmt.children[1], opts);
-
-    if (groupName.raw.length === 1) {
-        groupName = groupName.toString();
-        var group = model.findGroupsByID(groupName);
-        if (group) {
-            for (var i=0; i < nameList.length; i++) {
-                if (nameList[i].raw.length === 1) {
-                    var nodeName = nameList[i].toString();
-                    var node = model.findNodesByID(nodeName);
-                    if (node) {
-                        node.removeGroups(group);
-                        group.removeSubNodes(node);
-                    } else {
-                        cb(new Error('Unable to find node instance "'+nodeName+'" '+printLine(nameList, groupName)));
-                        break;
-                    }
-                } else {
-                    cb(new Error('Namespaces are not implemented yet '+printLine(nameList, groupName)));
-                }
-            }
-            cb();
-        } else {
-            cb(new Error('Unable to find group instance "'+groupName+'" '+printLine(nameList, groupName)));
-        }
-    } else {
-        cb(new Error('Namespaces are not implemented yet '+printLine(nameList, groupName)));
-    }
+  console.log('"include" statement is deprecated since v2.0.0');
+  cb();
 };
 
-function printLine(nameList, groupName) {
-    return '(detach '+display(nameList)+' '+groupName.toString()+')';
-}
-
-function display(nameList) {
-    return nameList.map(function (instancePath) {
-        return instancePath.toString();
-    }).join(', ');
-}
-},{}],27:[function(require,module,exports){
-module.exports = function (model, statements, stmt, opts) {
-  return stmt.children.join('');
-}
-},{}],28:[function(require,module,exports){
-module.exports = function (model, statements, stmt, opts) {
-  return stmt.children.join('');
-};
 },{}],29:[function(require,module,exports){
-var kevoree = require('kevoree-library').org.kevoree;
-var path = require('path');
+'use strict';
 
-var factory = new kevoree.factory.DefaultKevoreeFactory();
-var compare = factory.createModelCompare();
-
-module.exports = function (model, statements, stmt, opts, cb) {
-    console.log('"include" statement is deprecated since kevoree-kevscript@>=2.0.0');
-    cb();
-//    if (!cb) {
-//        // if "cb" is undefined, then  there is no "opts" parameter given, so no resolver, so :/
-//        return opts(new Error('You must give resolvers as options to "include.js" statement processor'));
-//    }
-//
-//    if (!opts.resolvers) return cb(new Error('Unable to process include. No resolver given'));
-//
-//    var du = factory.createDeployUnit();
-//    var type = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-//    var mergeDef = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-//
-//    if (opts.resolvers[type]) {
-//        var colons = mergeDef.split(':');
-//        var arobas = mergeDef.split('@');
-//        if (colons.length === 1 && arobas.length === 1) {
-//            // mergeDef looks like: foo
-//            du.name = mergeDef;
-//
-//        } else if (colons.length === 1 && arobas.length === 2) {
-//            // mergeDef looks like: foo@version
-//            du.name = arobas[0];
-//            du.version = arobas[1];
-//
-//        } else if (colons.length === 2 && arobas.length === 1) {
-//            // mergeDef looks like: foo:version
-//            du.name = colons[0];
-//            du.version = colons[1];
-//
-//        } else if (colons.length === 3 && arobas.length === 1) {
-//            // mergeDef looks like: foo:bar:version
-//            du.groupName = colons[0];
-//            du.name = colons[1];
-//            du.version = colons[2];
-//
-//        } else if (colons.length === 2 && arobas.length === 2) {
-//            // mergeDef looks like: foo:bar@version
-//            var subSplit = arobas[0].split(':');
-//            du.groupName = subSplit[0];
-//            du.name = subSplit[1];
-//            du.version = arobas[1];
-//        }
-//
-//        opts.resolvers[type].resolve(du, function (err, Clazz, duModel) {
-//            if (err) return cb(err);
-//
-//            var loader = factory.createJSONLoader();
-//            var serializer = factory.createJSONSerializer();
-//
-//            var tmp = loader.loadModelFromString(serializer.serialize(duModel)).get(0);
-//            var mergeSeq = compare.merge(model, tmp);
-//            mergeSeq.applyOn(model);
-//            return cb();
-//        });
-//
-//    } else {
-//        // no resolver set for include statements with "type"
-//        return cb(new Error('Error: include '+type+':'+mergeDef+' (Unable to handle "'+type+'" include type. Did you add a resolver for that?)'));
-//    }
-};
-},{"kevoree-library":"kevoree-library","path":80}],30:[function(require,module,exports){
 module.exports = function (model, statements, stmt, opts) {
-    var instancePath = [];
-    for (var i in stmt.children) {
-        instancePath.push(statements[stmt.children[i].type](model, statements, stmt.children[i], opts));
-    }
-
-    return {
-        raw: instancePath,
-        /**
-         * 'a.b.c' with expect(2, 4, function (err, one, two, three, four) {
-         *   if (err) {
-         *     // something went wrong with instancePath.expect parsing
-         *   }
-         *
-         *   // when parsing 'a.b.c' with expect(2, 4, ...) you get:
-         *   // one   === null
-         *   // two   === 'a'
-         *   // three === 'b'
-         *   // four  === 'c'
-         * }
-         * @param min minimum expected values in instancePath (ex: a.b.c with "min" = 4 will return an error in callback)
-         * @param max maximum expected values in instancePath (same as minimum but for maximum :D )
-         * @param callback function (err, [arg0, arg1, ...])
-         * @returns {*}
-         */
-        expect: function (min, max, callback) {
-            if (instancePath.length > max || instancePath.length < min) {
-                var err = new Error('InstancePath does not match requirements (path: '+instancePath.join('.')+', length: '+instancePath.length+', min: '+min+', max: '+max+')');
-                err.pathLength = instancePath.length;
-                err.expectedMin = min;
-                err.expectedMax = max;
-                return callback(err);
-            }
-
-            instancePath.unshift(null); // prepend null error value to params array
-            // nullify missing value in path (ex: 'a.b.c' with expect(2, 4, function (err, one, two, three, four) { }
-            // will nullify 'one' and shift values so you get two => a, three => b and four => c
-            for (var i=instancePath.length-1; i < max; i++) instancePath.unshift(null);
-            return callback.apply(null, instancePath);
-        },
-
-        toString: function () {
-            // remove useless dots
-            return instancePath.join('.').replace(/^\.*/g, '');
-        }
-    };
+  var instancePath = [];
+  for (var i in stmt.children) {
+    instancePath.push(statements[stmt.children[i].type](model, statements, stmt.children[i], opts));
+  }
+  return instancePath;
 };
-},{}],31:[function(require,module,exports){
-var Kotlin = require('kevoree-kotlin');
-var kevoree = require('kevoree-library').org.kevoree;
+
+},{}],30:[function(require,module,exports){
+'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  // instances to move
   var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-  // target node to move instances to
   var target   = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
 
-  function processNameList(targetNode) {
-    for (var i in nameList) {
-      nameList[i].expect(2, 3, function (err, namespace, nodeName, compName) {
-        if (err) {
-          err.message += ' (move '+nameList.toString()+' '+target.toString()+')';
-          return cb(err);
-        }
-
-        if (namespace) {
-          // TODO
-          return cb(new Error('Namespaces are not handled yet :/ Sorry (move '+nameList.toString()+' '+target.toString()+')'));
-
-        } else {
-          if (nodeName === '*') {
-            if (compName === '*') {
-              // move *.* fooNode
-              var nodes = model.nodes.iterator();
-              while (nodes.hasNext()) {
-                var fromNode = nodes.next();
-                var comps = fromNode.components.iterator();
-                while (comps.hasNext()) {
-                  var comp = comps.next();
-                  fromNode.removeComponents(comp);
-                  targetNode.addComponents(comp);
-                }
-              }
-
-            } else {
-              // move *.fooComp fooNode
-              var nodes = model.nodes.iterator();
-              while (nodes.hasNext()) {
-                var fromNode = nodes.next();
-                var comp = fromNode.findComponentsByID(compName);
-                if (comp) {
-                  fromNode.removeComponents(comp);
-                  targetNode.addComponents(comp);
-                }
-              }
-            }
-
-          } else {
-            if (compName === '*') {
-              // move fooNode.* barNode
-              var fromNode = model.findNodesByID(nodeName);
-              if (fromNode) {
-                var comps = fromNode.components.iterator();
-                while (comps.hasNext()) {
-                  var comp = comps.next();
-                  fromNode.removeComponents(comp);
-                  targetNode.addComponents(comp);
-                }
-
-              } else {
-                return cb(new Error('Unable to find node "'+nodeName+'" in model (move '+nameList.toString()+' '+target.toString()+')'));
-              }
-
-            } else {
-              // move fooNode.fooComp barNode
-              var node = model.findNodesByID(nodeName);
-              if (node) {
-                var comp = node.findComponentsByID(compName);
-                if (comp) {
-                  node.removeComponents(comp);
-                  targetNode.addComponents(comp);
-                }
-
-              } else {
-                return cb(new Error('Unable to find node "'+nodeName+'" in model (move '+nameList.toString()+' '+target.toString()+')'));
-              }
-            }
-          }
-        }
-      });
-    }
-  }
-
-  // process target instancePath
-  target.expect(1, 2, function (err, namespace, name) {
-    if (err) {
-      err.message += ' (move '+nameList.toString()+' '+target.toString()+')';
-      return cb(err);
-    }
-
-    if (namespace) {
-      // TODO
-      return cb(new Error('Namespaces are not handled yet :/ Sorry (move '+nameList.toString()+' '+target.toString()+')'));
-//      if (opts.namespaces[namespace]) {
-//        var instance = opts.namespaces[namespace][name];
-//        if (Kotlin.isType(instance.typeDefinition, kevoree.impl.NodeTypeImpl)) {
-//          // target node exists
-//          processNameList(instance);
-//
-//        } else {
-//          return cb(new Error('Matched entity in namespace "'+[namespace, name].join('.')+'" must be a NodeType.'));
-//        }
-//
-//      } else {
-//        return cb(new Error('Unable to find namespace "'+namespace+'"'));
-//      }
-
-    } else {
-      if (name === '*') {
-        return cb(new Error('You must specify one and only node target (move '+nameList.toString()+' '+target.toString()+')'));
-
+  var error;
+  try {
+    var targetNodes = [];
+    if (target.length === 1) {
+      if (target[0] === '*') {
+        targetNodes = model.nodes.array;
       } else {
-        // check if the target exists
-        var targetNode = model.findNodesByID(name);
-        if (targetNode) {
-          // target node exists
-          processNameList(targetNode);
-
+        var node = model.findNodesByID(target[0]);
+        if (node) {
+          targetNodes.push(node);
         } else {
-          // node does not exist in current model
-          return cb(new Error('Unable to find target node "'+target.toString()+'" in current model (move '+nameList.toString()+' '+target.toString()+')'));
+          throw new Error('Unable to find node instance "'+target[0]+'". Move failed');
         }
       }
+    } else {
+      throw new Error('Move target path is invalid ('+target.join('.')+')');
     }
-  });
 
-  cb();
-}
-},{"kevoree-kotlin":66,"kevoree-library":"kevoree-library"}],32:[function(require,module,exports){
-module.exports = function (model, statements, stmt, opts) {
-    var ret = [];
-    for (var i in stmt.children) {
-        ret.push(statements[stmt.children[i].type](model, statements, stmt.children[i], opts));
-    }
-    return ret;
+    nameList.forEach(function (instancePath) {
+      if (instancePath.length === 1) {
+        if (instancePath[0] === '*') {
+          throw new Error('Wildcard "*" cannot be used for nodes. Move failed');
+        } else {
+          // specific node instance to target
+          var nodeToMove = model.findNodesByID(instancePath[0]);
+          if (nodeToMove) {
+            targetNodes.forEach(function (node) {
+              node.addHosts(nodeToMove);
+              nodeToMove.host = node;
+            });
+          } else {
+            throw new Error('Unable to move node instance "'+instancePath[0]+'". Instance does not exist');
+          }
+        }
+      } else if (instancePath.length === 2) {
+        var hosts = [];
+        if (instancePath[0] === '*') {
+          // all nodes
+          hosts = model.nodes.array;
+        } else {
+          // specific node
+          var node = model.findNodesByID(instancePath[0]);
+          if (node) {
+            hosts.push(node);
+          } else {
+            throw new Error('Unable to find node instance "'+instancePath[0]+'". Move failed');
+          }
+        }
+
+        var components = [];
+        if (instancePath[1] === '*') {
+          // all components
+          hosts.forEach(function (host) {
+            components = components.concat(host.components.array);
+          });
+        } else {
+          // specific component
+          hosts.forEach(function (host) {
+            var comp = host.findComponentsByID(instancePath[1]);
+            if (comp) {
+              components.push(comp);
+            }
+          });
+        }
+
+        targetNodes.forEach(function (node) {
+          components.forEach(function (comp) {
+            node.addComponents(comp);
+          });
+        });
+      } else {
+        throw new Error('"'+instancePath.join('.')+'" is not a valid move path for an instance');
+      }
+    });
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
 };
-},{}],33:[function(require,module,exports){
-module.exports = function (model, statements, stmt, opts, cb) {
-  opts.namespaces = opts.namespaces || {};
-  var name = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-  opts.namespaces[name] = [];
-}
-},{}],34:[function(require,module,exports){
-var kevoree = require('kevoree-library').org.kevoree;
-var factory = new kevoree.factory.DefaultKevoreeFactory();
+
+},{}],31:[function(require,module,exports){
+'use strict';
+
+module.exports = function (model, statements, stmt, opts) {
+  var ret = [];
+  for (var i in stmt.children) {
+    ret.push(statements[stmt.children[i].type](model, statements, stmt.children[i], opts));
+  }
+  return ret;
+};
+
+},{}],32:[function(require,module,exports){
+'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
-    var networkPath  = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+  console.log('"namespace" statement is deprecated');
+  cb();
+};
+
+},{}],33:[function(require,module,exports){
+'use strict';
+
+var kevoree = require('kevoree-library');
+
+module.exports = function (model, statements, stmt, opts, cb) {
+    var networkPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
     var value = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
 
-    networkPath.expect(3, 4, function (err, namespace, nodeName, netName, propName) {
-        if (err) {
-            err.message += ' (network '+networkPath.toString()+' '+value+')';
-            return cb(err);
-        }
-
-        function addProp(net, propName) {
-            if (propName === '*') {
-                var props = net.values.iterator();
-                while (props.hasNext()) {
-                    props.next().value = value;
-                }
-
-            } else {
-                var prop = net.findValuesByID(propName);
-                if (prop) {
-                    prop.value = value;
-                } else {
-                    prop = factory.createValue();
-                    prop.name = propName;
-                    prop.value = value;
-                    net.addValues(prop);
-                }
-            }
-        }
-
-        function addNet(node, netName, propName) {
-            if (netName === '*') {
-                var nets = node.networkInformation.iterator();
-                while (nets.hasNext()) addProp(nets.next(), propName);
-
-            } else {
-                var net = node.findNetworkInformationByID(netName);
-                if (net) {
-                    addProp(net, propName);
-                } else {
-                    net = factory.createNetworkInfo();
-                    net.name = netName;
-                    node.addNetworkInformation(net);
-                    addProp(net, propName);
-                }
-            }
-        }
-
-        if (namespace) {
-            // TODO
-            return cb(new Error('Namespaces are not handled yet :/ Sorry (network '+networkPath.toString()+' '+value+')'));
-
+    var error;
+    try {
+      if (networkPath.length === 3) {
+        var nodes = [];
+        if (networkPath[0] === '*') {
+          // all nodes
+          nodes = model.nodes.array;
         } else {
-            // networkPath looks like "network node.foo.bar 0.0.0.0"
-            if (nodeName === '*') {
-                var nodes = model.nodes.iterator();
-                while (nodes.hasNext()) addNet(nodes.next(), netName, propName);
+          // specific node
+          var node = model.findNodesByID(networkPath[0]);
+          if (node) {
+            nodes.push(node);
+          } else {
+            throw new Error('Unable to find node instance "'+networkPath[0]+'". Network failed');
+          }
+        }
 
+        var factory = new kevoree.factory.DefaultKevoreeFactory();
+        var netTypes = [];
+        if (networkPath[1] === '*') {
+          // all network types
+          nodes.forEach(function (node) {
+            netTypes = netTypes.concat(node.networkInformation.array);
+          });
+        } else {
+          // specific network
+          nodes.forEach(function (node) {
+            var network = node.findNetworkInformationByID(networkPath[1]);
+            if (network) {
+              netTypes.push(network);
             } else {
-                var node = model.findNodesByID(nodeName);
-                if (node) {
-                    addNet(node, netName, propName);
-                } else {
-                    return cb(new Error('Unable to find node instance "'+nodeName+'" (network '+networkPath.toString()+' '+value+')'));
-                }
+              network = factory.createNetworkInfo();
+              network.name = networkPath[1];
+              node.addNetworkInformation(network);
+              netTypes.push(network);
             }
+          });
         }
-    });
 
-    cb();
-};
-},{"kevoree-library":"kevoree-library"}],35:[function(require,module,exports){
-module.exports = function () {
-    return '\n';
-};
-},{}],36:[function(require,module,exports){
-/**
- * Created by leiko on 19/06/14.
- */
-module.exports = function (model, statements, stmt, opts, cb) {
-    cb(new Error('Pause statement is not implemented yet'));
-};
-},{}],37:[function(require,module,exports){
-module.exports = function (model, statements, stmt, opts) {
-    var str = '';
-    for (var i in stmt.children) {
-        if (typeof (stmt.children[i]) === 'string') {
-            str += stmt.children[i];
-        } else if (stmt.children[i] instanceof Object) {
-            str += statements[stmt.children[i].type](model, statements, stmt.children[i], opts);
+        var netNames = [];
+        if (networkPath[2] === '*') {
+          // all network names
+          netTypes.forEach(function (net) {
+            netNames = netNames.concat(net.values.array);
+          });
+        } else {
+          // specific network name
+          netTypes.forEach(function (net) {
+            var val = net.findValuesByID(networkPath[2]);
+            if (val) {
+              netNames.push(val);
+            } else {
+              val = factory.createValue();
+              val.name = networkPath[2];
+              net.addValues(val);
+              netNames.push(val);
+            }
+          });
         }
+
+        netNames.forEach(function (net) {
+          net.value = value;
+        });
+      } else {
+        throw new Error('"'+networkPath.join('.')+'" is not a network path. Network path must look like "nodeName.netType.netName"');
+      }
+    } catch (err) {
+      error = err;
+    } finally {
+      cb(error);
     }
-    return str;
 };
-},{}],38:[function(require,module,exports){
+
+},{"kevoree-library":"kevoree-library"}],34:[function(require,module,exports){
+'use strict';
+
+module.exports = function () {
+  return '\n';
+};
+
+},{}],35:[function(require,module,exports){
+'use strict';
+
+module.exports = function (model, statements, stmt, opts, cb) {
+  console.log('"pause" statement is deprecated');
+  cb();
+};
+
+},{}],36:[function(require,module,exports){
+'use strict';
+
+module.exports = function (model, statements, stmt, opts) {
+  var str = '';
+  for (var i in stmt.children) {
+    if (typeof (stmt.children[i]) === 'string') {
+      str += stmt.children[i];
+    } else if (stmt.children[i] instanceof Object) {
+      str += statements[stmt.children[i].type](model, statements, stmt.children[i], opts);
+    }
+  }
+  return str;
+};
+
+},{}],37:[function(require,module,exports){
+'use strict';
+
 module.exports = function (model, statements, stmt) {
-    return stmt.children[0].children.join('');
+  return stmt.children[0].children.join('');
 };
-},{}],39:[function(require,module,exports){
-var kevoree = require('kevoree-library').org.kevoree;
-var Kotlin = require('kevoree-kotlin');
-var factory = kevoree.factory.DefaultKevoreeFactory();
+
+},{}],38:[function(require,module,exports){
+'use strict';
+
 var helper = require('../model-helper');
 
 module.exports = function (model, statements, stmt, opts, cb) {
-    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+  var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
 
-    function doRemove1(nodeName, third) {
-        var node = model.findNodesByID(nodeName);
-        if (node) {
-            if (third === '*') {
-                // remove all components within this node
-                var compz = node.components.iterator();
-                while (compz.hasNext()) doRemove(compz.next());
+  function doRemove1(nodeName, third) {
+    var node = model.findNodesByID(nodeName);
+    if (node) {
+      if (third === '*') {
+        // remove all components within this node
+        var compz = node.components.iterator();
+        while (compz.hasNext()) {
+          doRemove(compz.next());
+        }
 
-            } else {
-                var comp = node.findComponentsByID(third);
-                if (comp) {
-                    doRemove(comp);
-                } else {
-                    return cb(new Error('Unable to find component instance "'+third+'" in node instance "'+nodeName+'" in model (remove '+nameList.toString()+')'));
-                }
-            }
+      } else {
+        var comp = node.findComponentsByID(third);
+        if (comp) {
+          doRemove(comp);
         } else {
-            return cb(new Error('Unable to find node instance "'+nodeName+'" in model (remove '+nameList.toString()+')'));
+          throw new Error('Unable to find component instance "' + third + '" in node instance "' + nodeName + '" in model (remove ' + nameList.toString() + ')');
         }
-    }
-
-    function doRemove(instance) {
-        if (Kotlin.isType(instance, kevoree.ContainerNode)) {
-            // remove groups fragment dictionary related to this node
-            var groups = model.groups.iterator();
-            while (groups.hasNext()) {
-                var grp = groups.next();
-                var dic = grp.findFragmentDictionaryByID(instance.name);
-                if (dic) grp.removeFragmentDictionary(dic);
-            }
-
-            // remove channels fragment dictionary related to this node
-            var hubs = model.hubs.iterator();
-            while (hubs.hasNext()) {
-                var hub = hubs.next();
-                var dic = hub.findFragmentDictionaryByID(instance.name);
-                if (dic) hub.removeFragmentDictionary(dic);
-            }
-
-            // remove bindings related to this node
-            var comps = instance.components.iterator();
-            while (comps.hasNext()) {
-                var comp = comps.next();
-                var provided = comp.provided.iterator();
-                while (provided.hasNext()) {
-                    var pPort = provided.next();
-                    var bindings = pPort.bindings.iterator();
-                    while (bindings.hasNext()) {
-                        var binding = bindings.next();
-                        binding.hub.removeBindings(binding);
-                        model.removeMBindings(binding);
-                    }
-                }
-                var required = comp.required.iterator();
-                while (required.hasNext()) {
-                    var rPort = required.next();
-                    var bindings = rPort.bindings.iterator();
-                    while (bindings.hasNext()) {
-                        var binding = bindings.next();
-                        binding.hub.removeBindings(binding);
-                        model.removeMBindings(binding);
-                    }
-                }
-            }
-
-            // delete links with groups
-            var groups = instance.groups.iterator();
-            while (groups.hasNext()) groups.next().removeSubNodes(instance);
-
-            // remove node itself
-            if (instance.host) instance.host.removeHosts(instance);
-            model.removeNodes(instance);
-
-        } else if (Kotlin.isType(instance, kevoree.Group)) {
-            // remove link between this group and nodes
-            var nodes = instance.subNodes.iterator();
-            while (nodes.hasNext()) nodes.next().removeGroups(instance);
-            // remove group
-            model.removeGroups(instance);
-
-        } else if (Kotlin.isType(instance, kevoree.Channel)) {
-            var bindings = model.mBindings.iterator();
-            while (bindings.hasNext()) {
-                var binding = bindings.next();
-                if (binding.hub.name === instance.name) {
-                    if (binding.port) binding.port.removeBindings(binding);
-                    if (binding.hub)  binding.hub.removeBindings(binding);
-                    model.removeMBindings(binding);
-                }
-            }
-            model.removeHubs(instance);
-
-        } else if (Kotlin.isType(instance, kevoree.ComponentInstance)) {
-            function deleteBindings(ports) {
-                while (ports.hasNext()) {
-                    var bindings = ports.next().bindings.iterator();
-                    while (bindings.hasNext()) {
-                        var binding = bindings.next();
-                        if (binding.port) binding.port.removeBindings(binding);
-                        if (binding.hub)  binding.hub.removeBindings(binding);
-                        model.removeMBindings(binding);
-                    }
-                }
-            }
-
-            deleteBindings(instance.provided.iterator());
-            deleteBindings(instance.required.iterator());
-            instance.eContainer().removeComponents(instance);
-
-        } else {
-            return cb(new Error('Unable to remove instance "'+names[i]+'" from current model. (Are you sure it is a node, group, chan, component?)'));
-        }
-    }
-
-    for (var i in nameList) {
-        nameList[i].expect(1, 3, function (err, first, second, third) {
-            if (err) {
-                err.message = ' (remove '+nameList.toString()+')';
-                return cb(err);
-            }
-
-            if (first) {
-                // TODO there is at least 3 parts in path so it must refer to a namespace 'first.second.third'
-                return cb(new Error('Namespaces are not handled yet :/ Sorry (remove '+nameList.toString()+')'));
-
-            } else {
-                if (second) {
-                    // two parts path: 'second.third'
-                    if (second === '*') {
-                        var nodes = model.nodes.iterator();
-                        while (nodes.hasNext()) doRemove1(nodes.next().name, third);
-                    } else {
-                        doRemove1(second, third);
-                    }
-                } else {
-                    // one part path: 'third'
-                    if (third === '*') {
-                        var nodes = model.nodes.iterator();
-                        var groups = model.groups.iterator();
-                        var hubs = model.hubs.iterator();
-
-                        while (nodes.hasNext())  doRemove(nodes.next());
-                        while (groups.hasNext()) doRemove(groups.next());
-                        while (hubs.hasNext())   doRemove(hubs.next());
-
-                    } else {
-                        var instance = helper.findEntityByName(model, third);
-                        if (instance)
-                            doRemove(instance);
-                        else
-                            return cb(new Error('Unable to find instance "'+third+'" in model (remove '+nameList.toString()+')'));
-                    }
-                }
-            }
-        });
-    }
-
-    var names = [];
-
-    if (stmt.children[0].type == 'nameList') {
-        for (var i in stmt.children[0].children) {
-            names.push(stmt.children[0].children[i].children.join(''));
-        }
+      }
     } else {
-        names.push(stmt.children[0].children.join(''));
+      throw new Error('Unable to find node instance "' + nodeName + '" in model (remove ' + nameList.toString() + ')');
     }
+  }
 
-    for (var i in names) {
-        var entity = helper.findEntityByName(model, names[i]);
-        if (entity != null) {
-            if (Kotlin.isType(entity, kevoree.ContainerNode)) {
-                var groups = (model.groups) ? model.groups.iterator() : null;
-                if (groups != null) {
-                    while (groups.hasNext()) {
-                        var group = groups.next();
-                        var subNodes = group.subNodes.iterator();
-                        while (subNodes.hasNext()) {
-                            if (subNodes.next().name == entity.name) group.removeSubNodes(entity);
-                        }
-                        var values = group.dictionary.values.iterator();
-                        while (values.hasNext()) {
-                            var val = values.next();
-                            if (val.targetNode.name == entity.name) group.dictionary.removeValues(val);
-                        }
-                    }
-                }
-                model.removeNodes(entity);
+  function removeNode(node) {
+    // remove groups fragment dictionary related to this node
+    model.groups.array.forEach(function (group) {
+      var dic = group.findFragmentDictionaryByID(node.name);
+      if (dic) {
+        group.removeFragmentDictionary(dic);
+      }
+    });
 
-            } else if (Kotlin.isType(entity, kevoree.Group)) {
-                model.removeGroups(entity);
-            } else if (Kotlin.isType(entity, kevoree.Channel)) {
-                model.removeHubs(entity);
-            } else if (Kotlin.isType(entity, kevoree.ComponentInstance)) {
-                entity.eContainer().removeComponents(entity);
-            } else {
-                return cb(new Error('Unable to remove instance "'+names[i]+'" from current model. (Are you sure it is a node, group, chan, component?)'));
-            }
+    // remove channels fragment dictionary related to this node
+    model.hubs.array.forEach(function (hub) {
+      var dic = hub.findFragmentDictionaryByID(node.name);
+      if (dic) {
+        hub.removeFragmentDictionary(dic);
+      }
+    });
+
+    // remove bindings related to this node
+    node.components.array.forEach(function (comp) {
+      comp.provided.array.concat(comp.required.array).forEach(function (port) {
+        port.bindings.array.forEach(function (binding) {
+          binding.hub.removeBindings(binding);
+          model.removeMBindings(binding);
+        });
+      });
+    });
+
+    // delete links with groups
+    node.groups.array.forEach(function (group) {
+      group.removeSubNodes(node);
+    });
+
+    // remove node itself
+    if (node.host) {
+      node.host.removeHosts(node);
+    }
+    model.removeNodes(node);
+  }
+
+  function removeGroup(group) {
+    // remove link between this group and nodes
+    group.subNodes.array.forEach(function (node) {
+      node.removeGroups(group);
+    });
+    // remove group
+    model.removeGroups(group);
+  }
+
+  function removeChannel(chan) {
+    model.mBindings.array.forEach(function (binding) {
+      if (binding.hub.name === chan.name) {
+        if (binding.port) {
+          binding.port.removeBindings(binding);
         }
-    }
+        if (binding.hub) {
+          binding.hub.removeBindings(binding);
+        }
+        model.removeMBindings(binding);
+      }
+    });
+    model.removeHubs(chan);
+  }
 
-    cb();
+  function removeComponent(comp) {
+    comp.provided.array.concat(comp.required.array).forEach(function (port) {
+      port.bindings.array.forEach(function (binding) {
+        if (binding.port) {
+          binding.port.removeBindings(binding);
+        }
+        if (binding.hub) {
+          binding.hub.removeBindings(binding);
+        }
+        model.removeMBindings(binding);
+      });
+    });
+    comp.eContainer().removeComponents(comp);
+  }
+
+  function removeFromNode(path, node) {
+    if (path === '*') {
+      // remove all from all nodes
+      node.components.array.forEach(removeComponent);
+      node.hosts.array.forEach(removeNode);
+    } else {
+      // remove a specific instance from all nodes
+      var comp = node.findComponentsByID(path);
+      if (comp) {
+        removeComponent(comp);
+      }
+      var subNode = node.findHostsByID(path);
+      if (subNode){
+        removeNode(subNode);
+      }
+    }
+  }
+
+  var error;
+  try {
+    nameList.forEach(function (instancePath) {
+      var instance;
+      if (instancePath.length === 1) {
+        if (instancePath[0] === '*') {
+          // remove all
+          model.removeAllHubs();
+          model.removeAllNodes();
+          model.removeAllGroups();
+          model.removeAllMBindings();
+        } else {
+          // path to a node / chan / group
+          var instances = model.nodes.array
+            .concat(model.hubs.array)
+            .concat(model.groups.array);
+          for (var i=0; i < instances.length; i++) {
+            if (instances[i].name === instancePath[0]) {
+              instance = instances[i];
+              break;
+            }
+          }
+          if (instance) {
+            if (instance.metaClassName() === 'org.kevoree.ContainerNode') {
+              removeNode(instance);
+            } else if (instance.metaClassName() === 'org.kevoree.Group') {
+              removeGroup(instance);
+            } else if (instance.metaClassName() === 'org.kevoree.Channel') {
+              removeChannel(instance);
+            }
+          } else {
+            throw new Error('Unable to remove instance "'+instancePath[0]+'". Instance does not exist');
+          }
+        }
+
+      } else if (instancePath.length === 2) {
+        // path to a component/subNode
+        if (instancePath[0] === '*') {
+          // remove from all nodes
+          model.nodes.array.forEach(function (node) {
+            removeFromNode(instancePath[1], node);
+          });
+        } else {
+          // remove from a specific node
+          var hostNode = model.findNodesByID(instancePath[0]);
+          if (hostNode) {
+            removeFromNode(instancePath[1], hostNode);
+          } else {
+            throw new Error('Unable to remove instances from "'+instancePath[0]+'". Instance does not exist');
+          }
+        }
+
+      } else {
+         throw new Error('Instance path for "remove" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid');
+      }
+    });
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
 };
-},{"../model-helper":16,"kevoree-kotlin":66,"kevoree-library":"kevoree-library"}],40:[function(require,module,exports){
-module.exports = function (model, statements, stmt) {
-  return stmt.children.join('');
-};
-},{}],41:[function(require,module,exports){
+
+},{"../model-helper":15}],39:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],40:[function(require,module,exports){
 'use strict';
 
-var kevoree = require('kevoree-library').org.kevoree;
-var factory = new kevoree.factory.DefaultKevoreeFactory();
-var helper  = require('../model-helper');
+var kevoree = require('kevoree-library');
+
+function updateDictionary(instance, attrName) {
+  var factory = new kevoree.factory.DefaultKevoreeFactory();
+  if (instance.typeDefinition.dictionaryType) {
+    if (!instance.dictionary) {
+      instance.dictionary = factory.createDictionary().withGenerated_KMF_ID(0);
+    }
+    var attrTypes = instance.typeDefinition.dictionaryType.select('attributes[' + attrName + ']').array;
+    if (attrTypes.length === 0) {
+      throw new Error('Attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
+    } else {
+      attrTypes.forEach(function (attrType) {
+        if (!attrType.fragmentDependant) {
+          var attr = factory.createValue();
+          attr.name = attrType.name;
+          instance.dictionary.addValues(attr);
+        } else {
+          throw new Error('Attribute "'+attrType.name+'" in "'+instance.typeDefinition.name+'" must be set with a fragment. Set failed');
+        }
+      });
+    }
+  } else {
+    throw new Error('Attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
+  }
+}
+
+function updateFragmentDictionary(dic, instance, attrName) {
+  var factory = new kevoree.factory.DefaultKevoreeFactory();
+  if (instance.typeDefinition.dictionaryType) {
+    var attrTypes = instance.typeDefinition.dictionaryType.select('attributes[' + attrName + ']').array;
+    if (attrTypes.length === 0) {
+      throw new Error('Fragmented attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
+    } else {
+      attrTypes.forEach(function (attrType) {
+        if (attrType.fragmentDependant) {
+          var attr = factory.createValue();
+          attr.name = attrType.name;
+          dic.addValues(attr);
+        } else {
+          throw new Error('Fragmented attribute "'+attrType.name+'" in "'+instance.typeDefinition.name+'" is not fragmented. Set failed');
+        }
+      });
+    }
+  } else {
+    throw new Error('Fragmented attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
+  }
+}
 
 module.exports = function (model, statements, stmt, opts, cb) {
-    var attr  = null,
-        node  = null,
-        value = null;
-
-    function processAttribute(dic, attrName) {
-        var dicValue = dic.findValuesByID(attrName);
-        if (dicValue) {
-            // update value
-            dicValue.value = value;
-        } else {
-            // dictionary value for attribute named attrName does not exist yet: create it and add it if possible
-            var kAttr = dic.eContainer().typeDefinition.dictionaryType.findAttributesByID(attrName);
-            if (kAttr) {
-                dicValue = factory.createValue();
-                dicValue.name = attrName;
-                dicValue.value = value;
-                dic.addValues(dicValue);
-            } else {
-                throw new Error('Unknown attribute "'+attrName+'" in '+dic.eContainer().path()+' (set '+attr.toString()+' = "'+value+'")');
-            }
-        }
-    }
-
-    function processInstanceAttribute(instance, attrName) {
-        if (node) {
-            // fragment dependant attribute
-            var dic = instance.findFragmentDictionaryByID(node.toString());
-            if (!dic) {
-                // there is no fragmentDependant dictionary for this instance and fragment yet: create one
-                dic = factory.createFragmentDictionary();
-                dic.name = node.toString();
-                instance.addFragmentDictionary(dic);
-            }
-            processAttribute(dic, attrName);
-
-        } else {
-            // non-fragment dependant attribute
-            if (!instance.dictionary) {
-              instance.dictionary = factory.createDictionary();
-            }
-            processAttribute(instance.dictionary, attrName);
-        }
-    }
-
-    function processNodeAndHostsAttribute(node, hostName, attrName) {
-        if (hostName === '*') {
-            var comps = node.components.iterator();
-            while (comps.hasNext()) {
-              processInstanceAttribute(comps.next(), attrName);
-            }
-
-        } else {
-            var host = node.findComponentsByID(hostName);
-            if (!host) {
-                host = node.findHostsByID(hostName);
-                if (!host) {
-                    throw new Error('Unable to find instance "'+hostName+'" in "'+node.name+'" model (set '+attr.toString()+' = "'+value+'")');
-                }
-            }
-            processInstanceAttribute(host, attrName);
-        }
-    }
-
+  var attrPath, nodePath, value, error;
+  try {
+    var attributes = [];
     if (stmt.children.length === 2) {
-        // set statement looks like: set an.instance.path = 'aValue'
-        attr  = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-        value = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
+      // regular attribute
+      attrPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+      value = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
 
-        attr.expect(2, 4, function (err, ns, two, three, four) {
-            if (err) {
-                err.message += ' (set '+attr.toString()+' = "'+value+'")';
-                cb(err);
+      if (attrPath.length === 3) {
+        model
+          .select('/nodes[' + attrPath[0] + ']/components[' + attrPath[1] + ']').array
+          .forEach(function (comp) {
+            updateDictionary(comp, attrPath[2]);
+            if (comp.dictionary) {
+              attributes = attributes.concat(comp.dictionary.values.array);
             }
-
-            if (ns) {
-                // TODO
-                cb(new Error('Namespaces are not handled yet :/ Sorry (set '+attr.toString()+' = "'+value+'")'));
-
-            } else {
-              try {
-                if (two) {
-                    // statement looks like foo.bar.baz = '42'
-                    if (two === '*') {
-                        // TODO handle namespaces too when using '*' ?
-                        var nodes = model.nodes.iterator();
-                        while (nodes.hasNext()) {
-                          processNodeAndHostsAttribute(nodes.next(), three, four);
-                        }
-
-                    } else {
-                        // check whether "two" is a namespace or a node name
-                        var nodeInstance = model.findNodesByID(two);
-                        if (nodeInstance) {
-                            processNodeAndHostsAttribute(nodeInstance, three, four);
-
-                        } else {
-                            // TODO
-                            throw new Error('Namespaces are not handled yet :/ Sorry (set '+attr.toString()+' = "'+value+'")');
-                        }
-                    }
-
-                } else {
-                    // statement looks like foo.bar = '42'
-                    var instance = helper.findEntityByName(model, three);
-                    if (instance) {
-                        processInstanceAttribute(instance, four);
-
-                    } else {
-                        throw new Error('Unable to find instance "'+two+'" in model (set '+attr.toString()+' = "'+value+'")');
-                    }
-                }
-                cb();
-              } catch (err) {
-                cb(err);
-              }
+          });
+      } else if (attrPath.length === 2) {
+        model
+          .select('/nodes[' + attrPath[0] + ']').array
+          .concat(model.select('/groups[' + attrPath[0] + ']').array)
+          .concat(model.select('/hubs[' + attrPath[0] + ']').array)
+          .forEach(function (instance) {
+            updateDictionary(instance, attrPath[1]);
+            if (instance.dictionary) {
+              attributes = attributes.concat(instance.dictionary.values.array);
             }
+          });
+      } else {
+        throw new Error('"' + attrPath.join('.') + '" is not a valid attribute path');
+      }
+
+      if (attributes.length === 0) {
+        throw new Error('Unable to find attribute "' + attrPath.join('.') + '". Set failed');
+      } else {
+        attributes.forEach(function (attr) {
+          attr.value = value;
         });
+      }
 
     } else if (stmt.children.length === 3) {
-        // set statement looks like: set an.instance.path/aNode = 'aValue'
-        attr  = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-        node  = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-        value = statements[stmt.children[2].type](model, statements, stmt.children[2], opts, cb);
+      // fragmented attribute
+      attrPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+      nodePath = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
+      value = statements[stmt.children[2].type](model, statements, stmt.children[2], opts, cb);
 
-        attr.expect(2, 3, function (err, ns, instanceName, attrName) {
-            if (err) {
-                err.message += ' (set '+attr.toString()+'/'+node.toString()+' = "'+value+'")';
-                cb(err);
-            }
-
-            if (ns) {
-                // TODO
-                cb(new Error('Namespaces are not handled yet :/ Sorry (set '+attr.toString()+'/'+node.toString()+' = "'+value+'")'));
-
-            } else {
-                try {
-                  if (instanceName === '*') {
-                      var groups = model.groups.iterator();
-                      while (groups.hasNext()) {
-                        processInstanceAttribute(groups.next(), attrName);
-                      }
-                      var hubs = model.hubs.iterator();
-                      while (hubs.hasNext()) {
-                        processInstanceAttribute(hubs.next(), attrName);
-                      }
-
-                  } else {
-                      // instance is whether a group or a channel
-                      var group = model.findGroupsByID(instanceName);
-                      if (group) {
-                        // instance is a group
-                        processInstanceAttribute(group, attrName);
-                      } else {
-                        var chan = model.findHubsByID(instanceName);
-                        if (chan) {
-                          // instance is a channel
-                          processInstanceAttribute(chan, attrName);
-                        } else {
-                          throw new Error('Unable to find instance ' + instanceName + ' in model (set '+attr.toString()+'/'+node.toString()+' = "'+value+'")');
-                        }
-                      }
-                  }
-                  cb();
-                } catch (err) {
-                  cb(err);
+      if (attrPath.length === 3) {
+        throw new Error('Setting fragmented attribute only makes sense for groups & channels. "' + attrPath.join('.') + '/' + nodePath.join('.') + '" can only refer to a component attribute. Set failed');
+      } else if (attrPath.length === 2) {
+        if (nodePath.length === 1) {
+          model
+            .select('/groups[' + attrPath[0] + ']').array
+            .concat(model.select('/hubs[' + attrPath[0] + ']').array)
+            .forEach(function (instance) {
+              if (nodePath[0] === '*') {
+                // all fragments
+                instance.fragmentDictionary.array.forEach(function (fDic) {
+                  updateFragmentDictionary(fDic, instance, attrPath[1]);
+                  attributes = attributes.concat(fDic.values.array);
+                });
+              } else {
+                // specific fragment
+                var fDic = instance.findFragmentDictionaryByID(nodePath[0]);
+                if (fDic) {
+                  updateFragmentDictionary(fDic, instance, attrPath[1]);
+                  attributes = attributes.concat(fDic.values.array);
+                } else {
+                  throw new Error('Unable to find fragment "'+nodePath[0]+'" for instance "'+attrPath[0]+'". Set failed');
                 }
-            }
+              }
+            });
+        } else {
+          throw new Error('Invalid fragment path "'+nodePath.join('.')+'". Fragment path must be a node name. Set failed');
+        }
+      } else {
+        throw new Error('"' + attrPath.join('.') + '" is not a valid attribute path');
+      }
+
+      if (attributes.length === 0) {
+        throw new Error('Unable to find fragmented attribute "' + attrPath.join('.') + '/'+nodePath[0]+'". Set failed');
+      } else {
+        attributes.forEach(function (attr) {
+          attr.value = value;
         });
+      }
     }
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
 };
 
-},{"../model-helper":16,"kevoree-library":"kevoree-library"}],42:[function(require,module,exports){
-arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],43:[function(require,module,exports){
-var resolver = require('../instance-resolver');
-
-/**
- * Created by leiko on 19/06/14.
- */
-module.exports = function (model, statements, stmt, opts, cb) {
-    var error = null;
-    try {
-        var instances = resolver.resolve(model, stmt.children[0]);
-        for (var i=0; i < instances.length; i++) {
-            instances[i].started = true;
-        }
-    } catch (err) {
-        var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-        err.message += ' ('+stmt.type+' '+nameList.join(', ')+')';
-        error = err;
-    } finally {
-        cb(error);
-    }
-};
-},{"../instance-resolver":14}],44:[function(require,module,exports){
-var resolver = require('../instance-resolver');
-
-/**
- * Created by leiko on 19/06/14.
- */
-module.exports = function (model, statements, stmt, opts, cb) {
-    var error = null;
-    try {
-        var instances = resolver.resolve(model, stmt.children[0]);
-        for (var i=0; i < instances.length; i++) {
-            instances[i].started = false;
-        }
-    } catch (err) {
-        var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-        err.message += ' ('+stmt.type+' '+nameList.join(', ')+')';
-        error = err;
-    } finally {
-        cb(error);
-    }
-};
-},{"../instance-resolver":14}],45:[function(require,module,exports){
-arguments[4][28][0].apply(exports,arguments)
-},{"dup":28}],46:[function(require,module,exports){
-arguments[4][28][0].apply(exports,arguments)
-},{"dup":28}],47:[function(require,module,exports){
-arguments[4][28][0].apply(exports,arguments)
-},{"dup":28}],48:[function(require,module,exports){
+},{"kevoree-library":"kevoree-library"}],41:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],42:[function(require,module,exports){
 'use strict';
 
+module.exports = function (model, statements, stmt, opts, cb) {
+  var error;
+  try {
+    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0]);
+    nameList.forEach(function (instancePath) {
+      var instances = [];
+      if (instancePath.length === 1) {
+        // node / chan / group
+        instances = model.select('/nodes['+instancePath[0]+']').array
+          .concat(model.select('/groups['+instancePath[0]+']').array)
+          .concat(model.select('/hubs['+instancePath[0]+']').array);
+      } else if (instancePath.length === 2) {
+        // component
+        instances = model.select('/nodes['+instancePath[0]+']/components['+instancePath[1]+']').array;
+
+      } else {
+        throw new Error('"'+instancePath.join('.')+'" is not a valid path for an instance. Start failed');
+      }
+
+      if (instancePath.indexOf('*') === -1 && instances.length === 0) {
+        throw new Error('Unable to start "'+instancePath.join('.')+'". Instance does not exist');
+      } else {
+        instances.forEach(function (instance) {
+          instance.started = true;
+        });
+      }
+    });
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
+};
+
+},{}],43:[function(require,module,exports){
+'use strict';
+
+module.exports = function (model, statements, stmt, opts, cb) {
+  var error;
+  try {
+    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0]);
+    nameList.forEach(function (instancePath) {
+      var instances = [];
+      if (instancePath.length === 1) {
+        // node / chan / group
+        instances = model.select('/nodes['+instancePath[0]+']').array
+          .concat(model.select('/groups['+instancePath[0]+']').array)
+          .concat(model.select('/hubs['+instancePath[0]+']').array);
+      } else if (instancePath.length === 2) {
+        // component
+        instances = model.select('/nodes['+instancePath[0]+']/components['+instancePath[1]+']').array;
+
+      } else {
+        throw new Error('"'+instancePath.join('.')+'" is not a valid path for an instance. Stop failed');
+      }
+
+      if (instancePath.indexOf('*') === -1 && instances.length === 0) {
+        throw new Error('Unable to stop "'+instancePath.join('.')+'". Instance does not exist');
+      } else {
+        instances.forEach(function (instance) {
+          instance.started = false;
+        });
+      }
+    });
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
+};
+
+},{}],44:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],45:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],46:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],47:[function(require,module,exports){
+'use strict';
 
 var kevoree = require('kevoree-library');
 var tdefResolver = require('../typedef-resolver');
@@ -2858,20 +2524,22 @@ module.exports.setCacheManager = function (cacheMgr) {
   cache = cacheMgr;
 };
 
-},{"../typedef-resolver":52,"kevoree-library":"kevoree-library"}],49:[function(require,module,exports){
-// Created by leiko on 27/08/14 15:15
+},{"../typedef-resolver":51,"kevoree-library":"kevoree-library"}],48:[function(require,module,exports){
+'use strict';
+
 module.exports = function (model, statements, stmt, opts, cb) {
-    var typeFqn = [];
-    for (var i in stmt.children) {
-        if (typeof (stmt.children[i]) === 'string') {
-            typeFqn.push(stmt.children[i]);
-        } else {
-            typeFqn.push(statements[stmt.children[i].type](model, statements, stmt.children[i], opts, cb));
-        }
+  var typeFqn = [];
+  for (var i in stmt.children) {
+    if (typeof (stmt.children[i]) === 'string') {
+      typeFqn.push(stmt.children[i]);
+    } else {
+      typeFqn.push(statements[stmt.children[i].type](model, statements, stmt.children[i], opts, cb));
     }
-    return typeFqn.join('');
+  }
+  return typeFqn.join('');
 };
-},{}],50:[function(require,module,exports){
+
+},{}],49:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt) {
@@ -2899,11 +2567,9 @@ module.exports = function (model, statements, stmt) {
   return version;
 };
 
-},{}],51:[function(require,module,exports){
-module.exports = function (model, statements, stmt, opts, cb) {
-  return stmt.children.join('');
-}
-},{}],52:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],51:[function(require,module,exports){
 'use strict';
 
 var api = require('kevoree-registry-api');
@@ -3018,7 +2684,7 @@ module.exports = function typeDefResolver(namespace, name, version, logger) {
   });
 };
 
-},{"kevoree-library":"kevoree-library","kevoree-registry-api":68,"q":84}],53:[function(require,module,exports){
+},{"kevoree-library":"kevoree-library","kevoree-registry-api":65,"q":80}],52:[function(require,module,exports){
 (function (process,global){
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
@@ -8236,7 +7902,7 @@ module.exports = function typeDefResolver(namespace, name, version, logger) {
 
 }));
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":82}],54:[function(require,module,exports){
+},{"_process":78}],53:[function(require,module,exports){
 'use strict'
 
 exports.toByteArray = toByteArray
@@ -8347,9 +8013,9 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],55:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 
-},{}],56:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -8461,7 +8127,7 @@ exports.allocUnsafeSlow = function allocUnsafeSlow(size) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"buffer":57}],57:[function(require,module,exports){
+},{"buffer":56}],56:[function(require,module,exports){
 (function (global){
 /*!
  * The buffer module from node.js, for the browser.
@@ -10252,7 +9918,7 @@ function isnan (val) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":54,"ieee754":62,"isarray":65}],58:[function(require,module,exports){
+},{"base64-js":53,"ieee754":61,"isarray":64}],57:[function(require,module,exports){
 module.exports = {
   "100": "Continue",
   "101": "Switching Protocols",
@@ -10317,7 +9983,7 @@ module.exports = {
   "511": "Network Authentication Required"
 }
 
-},{}],59:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -10428,7 +10094,7 @@ function objectToString(o) {
 }
 
 }).call(this,{"isBuffer":require("../../is-buffer/index.js")})
-},{"../../is-buffer/index.js":64}],60:[function(require,module,exports){
+},{"../../is-buffer/index.js":63}],59:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -10732,7 +10398,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],61:[function(require,module,exports){
+},{}],60:[function(require,module,exports){
 var http = require('http');
 
 var https = module.exports;
@@ -10748,7 +10414,7 @@ https.request = function (params, cb) {
     return http.request.call(this, params, cb);
 }
 
-},{"http":95}],62:[function(require,module,exports){
+},{"http":91}],61:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -10834,7 +10500,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],63:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -10859,7 +10525,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],64:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -10882,987 +10548,14 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],65:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],66:[function(require,module,exports){
-module.exports = require('./lib/kotlin');
-
-},{"./lib/kotlin":67}],67:[function(require,module,exports){
-'use strict';var Kotlin = {};
-(function() {
-  function g(a, b) {
-    if (null != a && null != b) {
-      for (var c in b) {
-        b.hasOwnProperty(c) && (a[c] = b[c]);
-      }
-    }
-  }
-  function h(a) {
-    for (var b = 0;b < a.length;b++) {
-      if (null != a[b] && null == a[b].$metadata$ || a[b].$metadata$.type === Kotlin.TYPE.CLASS) {
-        return a[b];
-      }
-    }
-    return null;
-  }
-  function e(a, b, c) {
-    for (var f = 0;f < b.length;f++) {
-      if (null == b[f] || null != b[f].$metadata$) {
-        var d = c(b[f]), k;
-        for (k in d) {
-          d.hasOwnProperty(k) && (!a.hasOwnProperty(k) || a[k].$classIndex$ < d[k].$classIndex$) && (a[k] = d[k]);
-        }
-      }
-    }
-  }
-  function d(a, b) {
-    var c = {};
-    c.baseClasses = null == a ? [] : Array.isArray(a) ? a : [a];
-    c.baseClass = h(c.baseClasses);
-    c.classIndex = Kotlin.newClassIndex();
-    c.functions = {};
-    c.properties = {};
-    if (null != b) {
-      for (var f in b) {
-        if (b.hasOwnProperty(f)) {
-          var d = b[f];
-          d.$classIndex$ = c.classIndex;
-          "function" === typeof d ? c.functions[f] = d : c.properties[f] = d;
-        }
-      }
-    }
-    e(c.functions, c.baseClasses, function(a) {
-      return a.$metadata$.functions;
-    });
-    e(c.properties, c.baseClasses, function(a) {
-      return a.$metadata$.properties;
-    });
-    return c;
-  }
-  function a() {
-    var a = this.object_initializer$();
-    Object.defineProperty(this, "object", {value:a});
-    return a;
-  }
-  function b(a) {
-    return "function" === typeof a ? a() : a;
-  }
-  function c(a, b) {
-    if (null != a && null == a.$metadata$ || a.$metadata$.classIndex < b.$metadata$.classIndex) {
-      return!1;
-    }
-    var f = a.$metadata$.baseClasses, d;
-    for (d = 0;d < f.length;d++) {
-      if (f[d] === b) {
-        return!0;
-      }
-    }
-    for (d = 0;d < f.length;d++) {
-      if (c(f[d], b)) {
-        return!0;
-      }
-    }
-    return!1;
-  }
-  function f(a, b) {
-    return function() {
-      if (null !== b) {
-        var c = b;
-        b = null;
-        c.call(a);
-      }
-      return a;
-    };
-  }
-  function m(a) {
-    var b = {};
-    if (null == a) {
-      return b;
-    }
-    for (var c in a) {
-      a.hasOwnProperty(c) && ("function" === typeof a[c] ? a[c].type === Kotlin.TYPE.INIT_FUN ? (a[c].className = c, Object.defineProperty(b, c, {get:a[c], configurable:!0})) : b[c] = a[c] : Object.defineProperty(b, c, a[c]));
-    }
-    return b;
-  }
-  var l = function() {
-    return function() {
-    };
-  };
-  Kotlin.TYPE = {CLASS:"class", TRAIT:"trait", OBJECT:"object", INIT_FUN:"init fun"};
-  Kotlin.classCount = 0;
-  Kotlin.newClassIndex = function() {
-    var a = Kotlin.classCount;
-    Kotlin.classCount++;
-    return a;
-  };
-  Kotlin.createClassNow = function(b, c, f, e) {
-    null == c && (c = l());
-    g(c, e);
-    b = d(b, f);
-    b.type = Kotlin.TYPE.CLASS;
-    f = null !== b.baseClass ? Object.create(b.baseClass.prototype) : {};
-    Object.defineProperties(f, b.properties);
-    g(f, b.functions);
-    f.constructor = c;
-    null != b.baseClass && (c.baseInitializer = b.baseClass);
-    c.$metadata$ = b;
-    c.prototype = f;
-    Object.defineProperty(c, "object", {get:a, configurable:!0});
-    return c;
-  };
-  Kotlin.createObjectNow = function(a, b, c) {
-    a = new (Kotlin.createClassNow(a, b, c));
-    a.$metadata$ = {type:Kotlin.TYPE.OBJECT};
-    return a;
-  };
-  Kotlin.createTraitNow = function(b, c, f) {
-    var e = function() {
-    };
-    g(e, f);
-    e.$metadata$ = d(b, c);
-    e.$metadata$.type = Kotlin.TYPE.TRAIT;
-    e.prototype = {};
-    Object.defineProperties(e.prototype, e.$metadata$.properties);
-    g(e.prototype, e.$metadata$.functions);
-    Object.defineProperty(e, "object", {get:a, configurable:!0});
-    return e;
-  };
-  Kotlin.createClass = function(a, c, f, d) {
-    function e() {
-      var k = Kotlin.createClassNow(b(a), c, f, d);
-      Object.defineProperty(this, e.className, {value:k});
-      return k;
-    }
-    e.type = Kotlin.TYPE.INIT_FUN;
-    return e;
-  };
-  Kotlin.createTrait = function(a, c, f) {
-    function d() {
-      var e = Kotlin.createTraitNow(b(a), c, f);
-      Object.defineProperty(this, d.className, {value:e});
-      return e;
-    }
-    d.type = Kotlin.TYPE.INIT_FUN;
-    return d;
-  };
-  Kotlin.createObject = function(a, c, f) {
-    return Kotlin.createObjectNow(b(a), c, f);
-  };
-  Kotlin.callGetter = function(a, b, c) {
-    return b.$metadata$.properties[c].get.call(a);
-  };
-  Kotlin.callSetter = function(a, b, c, f) {
-    b.$metadata$.properties[c].set.call(a, f);
-  };
-  Kotlin.isType = function(a, b) {
-    return null == a || null == b ? !1 : a instanceof b ? !0 : null != b && null == b.$metadata$ || b.$metadata$.type == Kotlin.TYPE.CLASS ? !1 : c(a.constructor, b);
-  };
-  Kotlin.modules = {};
-  Kotlin.definePackage = function(a, b) {
-    var c = m(b);
-    return null === a ? {value:c} : {get:f(c, a)};
-  };
-  Kotlin.defineRootPackage = function(a, b) {
-    var c = m(b);
-    c.$initializer$ = null === a ? l() : a;
-    return c;
-  };
-  Kotlin.defineModule = function(a, b) {
-    if (a in Kotlin.modules) {
-      throw Error("Module " + a + " is already defined");
-    }
-    b.$initializer$.call(b);
-    Object.defineProperty(Kotlin.modules, a, {value:b});
-  };
-})();
-(function() {
-  function g(a) {
-    return function() {
-      throw new TypeError(void 0 !== a ? "Function " + a + " is abstract" : "Function is abstract");
-    };
-  }
-  String.prototype.startsWith = function(a) {
-    return 0 === this.indexOf(a);
-  };
-  String.prototype.endsWith = function(a) {
-    return-1 !== this.indexOf(a, this.length - a.length);
-  };
-  String.prototype.contains = function(a) {
-    return-1 !== this.indexOf(a);
-  };
-  Kotlin.equals = function(a, b) {
-    return null == a ? null == b : Array.isArray(a) ? Kotlin.arrayEquals(a, b) : "object" == typeof a && void 0 !== a.equals_za3rmp$ ? a.equals_za3rmp$(b) : a === b;
-  };
-  Kotlin.toString = function(a) {
-    return null == a ? "null" : Array.isArray(a) ? Kotlin.arrayToString(a) : a.toString();
-  };
-  Kotlin.arrayToString = function(a) {
-    return "[" + a.join(", ") + "]";
-  };
-  Kotlin.intUpto = function(a, b) {
-    return new Kotlin.NumberRange(a, b);
-  };
-  Kotlin.intDownto = function(a, b) {
-    return new Kotlin.Progression(a, b, -1);
-  };
-  Kotlin.RuntimeException = Kotlin.createClassNow();
-  Kotlin.NullPointerException = Kotlin.createClassNow();
-  Kotlin.NoSuchElementException = Kotlin.createClassNow();
-  Kotlin.IllegalArgumentException = Kotlin.createClassNow();
-  Kotlin.IllegalStateException = Kotlin.createClassNow();
-  Kotlin.UnsupportedOperationException = Kotlin.createClassNow();
-  Kotlin.IOException = Kotlin.createClassNow();
-  Kotlin.throwNPE = function() {
-    throw new Kotlin.NullPointerException;
-  };
-  Kotlin.Iterator = Kotlin.createClassNow(null, null, {next:g("Iterator#next"), hasNext:g("Iterator#hasNext")});
-  var h = Kotlin.createClassNow(Kotlin.Iterator, function(a) {
-    this.array = a;
-    this.index = 0;
-  }, {next:function() {
-    return this.array[this.index++];
-  }, hasNext:function() {
-    return this.index < this.array.length;
-  }, remove:function() {
-    if (0 > this.index || this.index > this.array.length) {
-      throw new RangeError;
-    }
-    this.index--;
-    this.array.splice(this.index, 1);
-  }}), e = Kotlin.createClassNow(h, function(a) {
-    this.list = a;
-    this.size = a.size();
-    this.index = 0;
-  }, {next:function() {
-    return this.list.get(this.index++);
-  }});
-  Kotlin.Collection = Kotlin.createClassNow();
-  Kotlin.Enum = Kotlin.createClassNow(null, function() {
-    this.ordinal$ = this.name$ = void 0;
-  }, {name:function() {
-    return this.name$;
-  }, ordinal:function() {
-    return this.ordinal$;
-  }, toString:function() {
-    return this.name();
-  }});
-  (function() {
-    function a(a) {
-      return this[a];
-    }
-    function b() {
-      return this.values$;
-    }
-    Kotlin.createEnumEntries = function(c) {
-      var f = 0, d = [], e;
-      for (e in c) {
-        if (c.hasOwnProperty(e)) {
-          var g = c[e];
-          d[f] = g;
-          g.ordinal$ = f;
-          g.name$ = e;
-          f++;
-        }
-      }
-      c.values$ = d;
-      c.valueOf_61zpoe$ = c.valueOf = a; // FIX because Enum.valueOf() is called instead of valueOf_61zpoe$()
-      c.values = b;
-      return c;
-    };
-  })();
-  Kotlin.PropertyMetadata = Kotlin.createClassNow(null, function(a) {
-    this.name = a;
-  });
-  Kotlin.AbstractCollection = Kotlin.createClassNow(Kotlin.Collection, null, {addAll_xeylzf$:function(a) {
-    var b = !1;
-    for (a = a.iterator();a.hasNext();) {
-      this.add_za3rmp$(a.next()) && (b = !0);
-    }
-    return b;
-  }, removeAll_xeylzf$:function(a) {
-    for (var b = !1, c = this.iterator();c.hasNext();) {
-      a.contains_za3rmp$(c.next()) && (c.remove(), b = !0);
-    }
-    return b;
-  }, retainAll_xeylzf$:function(a) {
-    for (var b = !1, c = this.iterator();c.hasNext();) {
-      a.contains_za3rmp$(c.next()) || (c.remove(), b = !0);
-    }
-    return b;
-  }, containsAll_xeylzf$:function(a) {
-    for (a = a.iterator();a.hasNext();) {
-      if (!this.contains_za3rmp$(a.next())) {
-        return!1;
-      }
-    }
-    return!0;
-  }, isEmpty:function() {
-    return 0 === this.size();
-  }, iterator:function() {
-    return new h(this.toArray());
-  }, equals_za3rmp$:function(a) {
-    if (this.size() !== a.size()) {
-      return!1;
-    }
-    var b = this.iterator();
-    a = a.iterator();
-    for (var c = this.size();0 < c--;) {
-      if (!Kotlin.equals(b.next(), a.next())) {
-        return!1;
-      }
-    }
-    return!0;
-  }, toString:function() {
-    for (var a = "[", b = this.iterator(), c = !0, f = this.size();0 < f--;) {
-      c ? c = !1 : a += ", ", a += b.next();
-    }
-    return a + "]";
-  }, toJSON:function() {
-    return this.toArray();
-  }});
-  Kotlin.AbstractList = Kotlin.createClassNow(Kotlin.AbstractCollection, null, {iterator:function() {
-    return new e(this);
-  }, remove_za3rmp$:function(a) {
-    a = this.indexOf_za3rmp$(a);
-    return-1 !== a ? (this.remove_za3lpa$(a), !0) : !1;
-  }, contains_za3rmp$:function(a) {
-    return-1 !== this.indexOf_za3rmp$(a);
-  }});
-  Kotlin.ArrayList = Kotlin.createClassNow(Kotlin.AbstractList, function() {
-    this.array = [];
-  }, {get_za3lpa$:function(a) {
-    this.checkRange(a);
-    return this.array[a];
-  },get:function(a){return this.get_za3lpa$(a);}
-   , set_vux3hl$:function(a, b) {
-    this.checkRange(a);
-    this.array[a] = b;
-  }, size:function() {
-    return this.array.length;
-  }, iterator:function() {
-    return Kotlin.arrayIterator(this.array);
-  }, add_za3rmp$:function(a) {
-    this.array.push(a);
-    return!0;
-  }, add_vux3hl$:function(a, b) {
-    this.array.splice(a, 0, b);
-  }, addAll_xeylzf$:function(a) {
-    var b = a.iterator(), c = this.array.length;
-    for (a = a.size();0 < a--;) {
-      this.array[c++] = b.next();
-    }
-  }, remove_za3lpa$:function(a) {
-    this.checkRange(a);
-    return this.array.splice(a, 1)[0];
-  }, clear:function() {
-    this.array.length = 0;
-  }, indexOf_za3rmp$:function(a) {
-    for (var b = 0;b < this.array.length;b++) {
-      if (Kotlin.equals(this.array[b], a)) {
-        return b;
-      }
-    }
-    return-1;
-  }, lastIndexOf_za3rmp$:function(a) {
-    for (var b = this.array.length - 1;0 <= b;b--) {
-      if (Kotlin.equals(this.array[b], a)) {
-        return b;
-      }
-    }
-    return-1;
-  }, toArray:function() {
-    return this.array.slice(0);
-  }, toString:function() {
-    return "[" + this.array.join(", ") + "]";
-  }, toJSON:function() {
-    return this.array;
-  }, checkRange:function(a) {
-    if (0 > a || a >= this.array.length) {
-      throw new RangeError;
-    }
-  }});
-  Kotlin.Runnable = Kotlin.createClassNow(null, null, {run:g("Runnable#run")});
-  Kotlin.Comparable = Kotlin.createClassNow(null, null, {compareTo:g("Comparable#compareTo")});
-  Kotlin.Appendable = Kotlin.createClassNow(null, null, {append:g("Appendable#append")});
-  Kotlin.Closeable = Kotlin.createClassNow(null, null, {close:g("Closeable#close")});
-  Kotlin.safeParseInt = function(a) {
-    a = parseInt(a, 10);
-    return isNaN(a) ? null : a;
-  };
-  Kotlin.safeParseDouble = function(a) {
-    a = parseFloat(a);
-    return isNaN(a) ? null : a;
-  };
-  Kotlin.arrayEquals = function(a, b) {
-    if (a === b) {
-      return!0;
-    }
-    if (!Array.isArray(b) || a.length !== b.length) {
-      return!1;
-    }
-    for (var c = 0, f = a.length;c < f;c++) {
-      if (!Kotlin.equals(a[c], b[c])) {
-        return!1;
-      }
-    }
-    return!0;
-  };
-  Kotlin.System = function() {
-    var a = "", b = function(b) {
-      void 0 !== b && (a = null === b || "object" !== typeof b ? a + b : a + b.toString());
-    }, c = function(b) {
-      this.print(b);
-      a += "\n";
-    };
-    return{out:function() {
-      return{print:b, println:c};
-    }, output:function() {
-      return a;
-    }, flush:function() {
-      a = "";
-    }};
-  }();
-  Kotlin.println = function(a) {
-    Kotlin.System.out().println(a);
-  };
-  Kotlin.print = function(a) {
-    Kotlin.System.out().print(a);
-  };
-  Kotlin.RangeIterator = Kotlin.createClassNow(Kotlin.Iterator, function(a, b, c) {
-    this.start = a;
-    this.end = b;
-    this.increment = c;
-    this.i = a;
-  }, {next:function() {
-    var a = this.i;
-    this.i += this.increment;
-    return a;
-  }, hasNext:function() {
-    return this.i <= this.end;
-  }});
-  Kotlin.NumberRange = Kotlin.createClassNow(null, function(a, b) {
-    this.start = a;
-    this.end = b;
-    this.increment = 1;
-  }, {contains:function(a) {
-    return this.start <= a && a <= this.end;
-  }, iterator:function() {
-    return new Kotlin.RangeIterator(this.start, this.end);
-  }});
-  Kotlin.Progression = Kotlin.createClassNow(null, function(a, b, c) {
-    this.start = a;
-    this.end = b;
-    this.increment = c;
-  }, {iterator:function() {
-    return new Kotlin.RangeIterator(this.start, this.end, this.increment);
-  }});
-  Kotlin.Comparator = Kotlin.createClassNow(null, null, {compare:g("Comparator#compare")});
-  var d = Kotlin.createClassNow(Kotlin.Comparator, function(a) {
-    this.compare = a;
-  });
-  Kotlin.comparator = function(a) {
-    return new d(a);
-  };
-  Kotlin.collectionsMax = function(a, b) {
-    if (a.isEmpty()) {
-      throw Error();
-    }
-    for (var c = a.iterator(), f = c.next();c.hasNext();) {
-      var d = c.next();
-      0 > b.compare(f, d) && (f = d);
-    }
-    return f;
-  };
-  Kotlin.collectionsSort = function(a, b) {
-    var c = void 0;
-    void 0 !== b && (c = b.compare.bind(b));
-    a instanceof Array && a.sort(c);
-    for (var f = [], d = a.iterator();d.hasNext();) {
-      f.push(d.next());
-    }
-    f.sort(c);
-    c = 0;
-    for (d = f.length;c < d;c++) {
-      a.set_vux3hl$(c, f[c]);
-    }
-  };
-  Kotlin.copyToArray = function(a) {
-    var b = [];
-    for (a = a.iterator();a.hasNext();) {
-      b.push(a.next());
-    }
-    return b;
-  };
-  Kotlin.StringBuilder = Kotlin.createClassNow(null, function() {
-    this.string = "";
-  }, {append:function(a) {
-    this.string += a.toString();
-    return this;
-  }, toString:function() {
-    return this.string;
-  }});
-  Kotlin.splitString = function(a, b, c) {
-    return a.split(RegExp(b), c);
-  };
-  Kotlin.nullArray = function(a) {
-    for (var b = [];0 < a;) {
-      b[--a] = null;
-    }
-    return b;
-  };
-  Kotlin.numberArrayOfSize = function(a) {
-    return Kotlin.arrayFromFun(a, function() {
-      return 0;
-    });
-  };
-  Kotlin.charArrayOfSize = function(a) {
-    return Kotlin.arrayFromFun(a, function() {
-      return "\x00";
-    });
-  };
-  Kotlin.booleanArrayOfSize = function(a) {
-    return Kotlin.arrayFromFun(a, function() {
-      return!1;
-    });
-  };
-  Kotlin.arrayFromFun = function(a, b) {
-    for (var c = Array(a), d = 0;d < a;d++) {
-      c[d] = b(d);
-    }
-    return c;
-  };
-  Kotlin.arrayIndices = function(a) {
-    return new Kotlin.NumberRange(0, a.length - 1);
-  };
-  Kotlin.arrayIterator = function(a) {
-    return new h(a);
-  };
-  Kotlin.jsonFromTuples = function(a) {
-    for (var b = a.length, c = {};0 < b;) {
-      --b, c[a[b][0]] = a[b][1];
-    }
-    return c;
-  };
-  Kotlin.jsonAddProperties = function(a, b) {
-    for (var c in b) {
-      b.hasOwnProperty(c) && (a[c] = b[c]);
-    }
-    return a;
-  };
-})();
-(function() {
-  function g(a) {
-    if ("string" == typeof a) {
-      return a;
-    }
-    if ("function" == typeof a.hashCode) {
-      return a = a.hashCode(), "string" == typeof a ? a : g(a);
-    }
-    if ("function" == typeof a.toString) {
-      return a.toString();
-    }
-    try {
-      return String(a);
-    } catch (b) {
-      return Object.prototype.toString.call(a);
-    }
-  }
-  function h(a, b) {
-    return a.equals(b);
-  }
-  function e(a, b) {
-    return "function" == typeof b.equals ? b.equals(a) : a === b;
-  }
-  function d(a) {
-    return function(b) {
-      if (null === b) {
-        throw Error("null is not a valid " + a);
-      }
-      if ("undefined" == typeof b) {
-        throw Error(a + " must not be undefined");
-      }
-    };
-  }
-  function a(a, b, c, d) {
-    this[0] = a;
-    this.entries = [];
-    this.addEntry(b, c);
-    null !== d && (this.getEqualityFunction = function() {
-      return d;
-    });
-  }
-  function b(a) {
-    return function(b) {
-      for (var c = this.entries.length, d, f = this.getEqualityFunction(b);c--;) {
-        if (d = this.entries[c], f(b, d[0])) {
-          switch(a) {
-            case n:
-              return!0;
-            case s:
-              return d;
-            case t:
-              return[c, d[1]];
-          }
-        }
-      }
-      return!1;
-    };
-  }
-  function c(a) {
-    return function(b) {
-      for (var c = b.length, d = 0, f = this.entries.length;d < f;++d) {
-        b[c + d] = this.entries[d][a];
-      }
-    };
-  }
-  function f(b, c) {
-    var d = b[c];
-    return d && d instanceof a ? d : null;
-  }
-  var m = "function" == typeof Array.prototype.splice ? function(a, b) {
-    a.splice(b, 1);
-  } : function(a, b) {
-    var c, d, f;
-    if (b === a.length - 1) {
-      a.length = b;
-    } else {
-      for (c = a.slice(b + 1), a.length = b, d = 0, f = c.length;d < f;++d) {
-        a[b + d] = c[d];
-      }
-    }
-  }, l = d("key"), r = d("value"), n = 0, s = 1, t = 2;
-  a.prototype = {getEqualityFunction:function(a) {
-    return "function" == typeof a.equals ? h : e;
-  }, getEntryForKey:b(s), getEntryAndIndexForKey:b(t), removeEntryForKey:function(a) {
-    return(a = this.getEntryAndIndexForKey(a)) ? (m(this.entries, a[0]), a[1]) : null;
-  }, addEntry:function(a, b) {
-    this.entries[this.entries.length] = [a, b];
-  }, keys:c(0), values:c(1), getEntries:function(a) {
-    for (var b = a.length, c = 0, d = this.entries.length;c < d;++c) {
-      a[b + c] = this.entries[c].slice(0);
-    }
-  }, containsKey_za3rmp$:b(n), containsValue_za3rmp$:function(a) {
-    for (var b = this.entries.length;b--;) {
-      if (a === this.entries[b][1]) {
-        return!0;
-      }
-    }
-    return!1;
-  }};
-  var u = function(b, c) {
-    var d = this, e = [], h = {}, p = "function" == typeof b ? b : g, n = "function" == typeof c ? c : null;
-    this.put_wn2jw4$ = function(b, c) {
-      l(b);
-      r(c);
-      var d = p(b), g, k = null;
-      (g = f(h, d)) ? (d = g.getEntryForKey(b)) ? (k = d[1], d[1] = c) : g.addEntry(b, c) : (g = new a(d, b, c, n), e[e.length] = g, h[d] = g);
-      return k;
-    };
-    this.get_za3rmp$ = function(a) {
-      l(a);
-      var b = p(a);
-      if (b = f(h, b)) {
-        if (a = b.getEntryForKey(a)) {
-          return a[1];
-        }
-      }
-      return null;
-    };
-    this.containsKey_za3rmp$ = function(a) {
-      l(a);
-      var b = p(a);
-      return(b = f(h, b)) ? b.containsKey_za3rmp$(a) : !1;
-    };
-    this.containsValue_za3rmp$ = function(a) {
-      r(a);
-      for (var b = e.length;b--;) {
-        if (e[b].containsValue_za3rmp$(a)) {
-          return!0;
-        }
-      }
-      return!1;
-    };
-    this.clear = function() {
-      e.length = 0;
-      h = {};
-    };
-    this.isEmpty = function() {
-      return!e.length;
-    };
-    var q = function(a) {
-      return function() {
-        for (var b = [], c = e.length;c--;) {
-          e[c][a](b);
-        }
-        return b;
-      };
-    };
-    this._keys = q("keys");
-    this._values = q("values");
-    this._entries = q("getEntries");
-    this.values = function() {
-      for (var a = this._values(), b = a.length, c = new Kotlin.ArrayList;b--;) {
-        c.add_za3rmp$(a[b]);
-      }
-      return c;
-    };
-    this.remove_za3rmp$ = function(a) {
-      l(a);
-      var b = p(a), c = null, d = f(h, b);
-      if (d && (c = d.removeEntryForKey(a), null !== c && !d.entries.length)) {
-        a: {
-          for (a = e.length;a--;) {
-            if (d = e[a], b === d[0]) {
-              break a;
-            }
-          }
-          a = null;
-        }
-        m(e, a);
-        delete h[b];
-      }
-      return c;
-    };
-    this.size = function() {
-      for (var a = 0, b = e.length;b--;) {
-        a += e[b].entries.length;
-      }
-      return a;
-    };
-    this.each = function(a) {
-      for (var b = d._entries(), c = b.length, e;c--;) {
-        e = b[c], a(e[0], e[1]);
-      }
-    };
-    this.putAll_za3j1t$ = function(a, b) {
-      for (var c = a._entries(), e, f, g, h = c.length, k = "function" == typeof b;h--;) {
-        e = c[h], f = e[0], e = e[1], k && (g = d.get(f)) && (e = b(f, g, e)), d.put_wn2jw4$(f, e);
-      }
-    };
-    this.clone = function() {
-      var a = new u(b, c);
-      a.putAll_za3j1t$(d);
-      return a;
-    };
-    this.keySet = function() {
-      for (var a = new Kotlin.ComplexHashSet, b = this._keys(), c = b.length;c--;) {
-        a.add_za3rmp$(b[c]);
-      }
-      return a;
-    };
-  };
-  Kotlin.HashTable = u;
-})();
-Kotlin.Map = Kotlin.createClassNow();
-Kotlin.HashMap = Kotlin.createClassNow(Kotlin.Map, function() {
-  Kotlin.HashTable.call(this);
-});
-Kotlin.ComplexHashMap = Kotlin.HashMap;
-(function() {
-  var g = Kotlin.createClassNow(Kotlin.Iterator, function(e, d) {
-    this.map = e;
-    this.keys = d;
-    this.size = d.length;
-    this.index = 0;
-  }, {next:function() {
-    return this.map[this.keys[this.index++]];
-  }, hasNext:function() {
-    return this.index < this.size;
-  }}), h = Kotlin.createClassNow(Kotlin.Collection, function(e) {
-    this.map = e;
-  }, {iterator:function() {
-    return new g(this.map.map, Object.keys(this.map.map));
-  }, isEmpty:function() {
-    return 0 === this.map.$size;
-  }, contains:function(e) {
-    return this.map.containsValue_za3rmp$(e);
-  }});
-  Kotlin.PrimitiveHashMap = Kotlin.createClassNow(Kotlin.Map, function() {
-    this.$size = 0;
-    this.map = {};
-  }, {size:function() {
-    return this.$size;
-  }, isEmpty:function() {
-    return 0 === this.$size;
-  }, containsKey_za3rmp$:function(e) {
-    return void 0 !== this.map[e];
-  }, containsValue_za3rmp$:function(e) {
-    var d = this.map, a;
-    for (a in d) {
-      if (d.hasOwnProperty(a) && d[a] === e) {
-        return!0;
-      }
-    }
-    return!1;
-  }, get_za3rmp$:function(e) {
-    return this.map[e];
-  }, put_wn2jw4$:function(e, d) {
-    var a = this.map[e];
-    this.map[e] = void 0 === d ? null : d;
-    void 0 === a && this.$size++;
-    return a;
-  }, remove_za3rmp$:function(e) {
-    var d = this.map[e];
-    void 0 !== d && (delete this.map[e], this.$size--);
-    return d;
-  }, clear:function() {
-    this.$size = 0;
-    this.map = {};
-  }, putAll_za3j1t$:function(e) {
-    e = e.map;
-    for (var d in e) {
-      e.hasOwnProperty(d) && (this.map[d] = e[d], this.$size++);
-    }
-  }, keySet:function() {
-    var e = new Kotlin.PrimitiveHashSet, d = this.map, a;
-    for (a in d) {
-      d.hasOwnProperty(a) && e.add_za3rmp$(a);
-    }
-    return e;
-  }, values:function() {
-    return new h(this);
-  }, toJSON:function() {
-    return this.map;
-  }});
-})();
-Kotlin.Set = Kotlin.createClassNow(Kotlin.Collection);
-var SetIterator = Kotlin.createClassNow(Kotlin.Iterator, function(g) {
-  this.set = g;
-  this.keys = g.toArray();
-  this.index = 0;
-}, {next:function() {
-  return this.keys[this.index++];
-}, hasNext:function() {
-  return this.index < this.keys.length;
-}, remove:function() {
-  this.set.remove_za3rmp$(this.keys[this.index - 1]);
-}});
-Kotlin.PrimitiveHashSet = Kotlin.createClassNow(Kotlin.AbstractCollection, function() {
-  this.$size = 0;
-  this.map = {};
-}, {contains_s9cetl$:function(g) {
-  return!0 === this.map[g];
-}, iterator:function() {
-  return new SetIterator(this);
-}, size:function() {
-    return this.$size;
-}, add_za3rmp$:function(g) {
-  var h = this.map[g];
-  this.map[g] = !0;
-  if (!0 === h) {
-    return!1;
-  }
-  this.$size++;
-  return!0;
-}, remove_za3rmp$:function(g) {
-  return!0 === this.map[g] ? (delete this.map[g], this.$size--, !0) : !1;
-}, clear:function() {
-  this.$size = 0;
-  this.map = {};
-}, toArray:function() {
-  return Object.keys(this.map);
-}});
-(function() {
-  function g(h, e) {
-    var d = new Kotlin.HashTable(h, e);
-    this.addAll_xeylzf$ = Kotlin.AbstractCollection.prototype.addAll_xeylzf$;
-    this.removeAll_xeylzf$ = Kotlin.AbstractCollection.prototype.removeAll_xeylzf$;
-    this.retainAll_xeylzf$ = Kotlin.AbstractCollection.prototype.retainAll_xeylzf$;
-    this.containsAll_xeylzf$ = Kotlin.AbstractCollection.prototype.containsAll_xeylzf$;
-    this.add_za3rmp$ = function(a) {
-      return!d.put_wn2jw4$(a, !0);
-    };
-    this.toArray = function() {
-      return d._keys();
-    };
-    this.iterator = function() {
-      return new SetIterator(this);
-    };
-    this.remove_za3rmp$ = function(a) {
-      return null != d.remove_za3rmp$(a);
-    };
-    this.contains_za3rmp$ = function(a) {
-      return d.containsKey_za3rmp$(a);
-    };
-    this.clear = function() {
-      d.clear();
-    };
-    this.size = function() {
-      return d.size();
-    };
-    this.isEmpty = function() {
-      return d.isEmpty();
-    };
-    this.clone = function() {
-      var a = new g(h, e);
-      a.addAll_xeylzf$(d.keys());
-      return a;
-    };
-    this.equals = function(a) {
-      if (null === a || void 0 === a) {
-        return!1;
-      }
-      if (this.size() === a.size()) {
-        var b = this.iterator();
-        for (a = a.iterator();;) {
-          var c = b.hasNext(), d = a.hasNext();
-          if (c != d) {
-            break;
-          }
-          if (d) {
-            if (c = b.next(), d = a.next(), !Kotlin.equals(c, d)) {
-              break;
-            }
-          } else {
-            return!0;
-          }
-        }
-      }
-      return!1;
-    };
-    this.toString = function() {
-      for (var a = "[", b = this.iterator(), c = !0;b.hasNext();) {
-        c ? c = !1 : a += ", ", a += b.next();
-      }
-      return a + "]";
-    };
-    this.intersection = function(a) {
-      var b = new g(h, e);
-      a = a.values();
-      for (var c = a.length, f;c--;) {
-        f = a[c], d.containsKey_za3rmp$(f) && b.add_za3rmp$(f);
-      }
-      return b;
-    };
-    this.union = function(a) {
-      var b = this.clone();
-      a = a.values();
-      for (var c = a.length, e;c--;) {
-        e = a[c], d.containsKey_za3rmp$(e) || b.add_za3rmp$(e);
-      }
-      return b;
-    };
-    this.isSubsetOf = function(a) {
-      for (var b = d.keys(), c = b.length;c--;) {
-        if (!a.contains_za3rmp$(b[c])) {
-          return!1;
-        }
-      }
-      return!0;
-    };
-  }
-  Kotlin.HashSet = Kotlin.createClassNow(Kotlin.Set, function() {
-    g.call(this);
-  });
-  Kotlin.ComplexHashSet = Kotlin.HashSet;
-})();
-module.exports = Kotlin;
-},{}],68:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 exports.du         = require('./lib/du');
 exports.dus        = require('./lib/dus');
 exports.auth       = require('./lib/auth');
@@ -11873,7 +10566,7 @@ exports.refresh    = require('./lib/refresh');
 exports.namespace  = require('./lib/namespace');
 exports.namespaces = require('./lib/namespaces');
 
-},{"./lib/auth":69,"./lib/du":70,"./lib/dus":71,"./lib/namespace":72,"./lib/namespaces":73,"./lib/refresh":74,"./lib/tdef":75,"./lib/tdefs":76,"./lib/whoami":79}],69:[function(require,module,exports){
+},{"./lib/auth":66,"./lib/du":67,"./lib/dus":68,"./lib/namespace":69,"./lib/namespaces":70,"./lib/refresh":71,"./lib/tdef":72,"./lib/tdefs":73,"./lib/whoami":76}],66:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -12030,7 +10723,7 @@ function auth(params) {
 module.exports = auth;
 
 }).call(this,require("buffer").Buffer)
-},{"./refresh":74,"buffer":57,"http":95,"https":61,"q":84,"tiny-conf":"tiny-conf"}],70:[function(require,module,exports){
+},{"./refresh":71,"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf"}],67:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -12417,7 +11110,7 @@ function du(params) {
 module.exports = du;
 
 }).call(this,require("buffer").Buffer)
-},{"./util/response-helper":77,"./util/validate":78,"buffer":57,"http":95,"https":61,"q":84,"tiny-conf":"tiny-conf","url-template":101}],71:[function(require,module,exports){
+},{"./util/response-helper":74,"./util/validate":75,"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],68:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -12504,7 +11197,7 @@ function dus(namespace, tdefName, tdefVersion, name, version) {
 
 module.exports = dus;
 
-},{"./util/response-helper":77,"http":95,"https":61,"q":84,"tiny-conf":"tiny-conf","url-template":101}],72:[function(require,module,exports){
+},{"./util/response-helper":74,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],69:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -12641,7 +11334,7 @@ function namespace(params) {
 module.exports = namespace;
 
 }).call(this,require("buffer").Buffer)
-},{"./util/response-helper":77,"buffer":57,"http":95,"https":61,"q":84,"tiny-conf":"tiny-conf","url-template":101}],73:[function(require,module,exports){
+},{"./util/response-helper":74,"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],70:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -12693,7 +11386,7 @@ function namespaces() {
 
 module.exports = namespaces;
 
-},{"./util/response-helper":77,"http":95,"https":61,"q":84,"tiny-conf":"tiny-conf"}],74:[function(require,module,exports){
+},{"./util/response-helper":74,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf"}],71:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -12778,7 +11471,7 @@ function refresh() {
 module.exports = refresh;
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":57,"http":95,"https":61,"q":84,"tiny-conf":"tiny-conf"}],75:[function(require,module,exports){
+},{"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf"}],72:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -13004,7 +11697,7 @@ function tdef(params) {
 module.exports = tdef;
 
 }).call(this,require("buffer").Buffer)
-},{"./util/response-helper":77,"./util/validate":78,"buffer":57,"http":95,"https":61,"q":84,"tiny-conf":"tiny-conf","url-template":101}],76:[function(require,module,exports){
+},{"./util/response-helper":74,"./util/validate":75,"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],73:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -13063,7 +11756,7 @@ function tdefs(namespace) {
 
 module.exports = tdefs;
 
-},{"./util/response-helper":77,"http":95,"https":61,"q":84,"tiny-conf":"tiny-conf","url-template":101}],77:[function(require,module,exports){
+},{"./util/response-helper":74,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],74:[function(require,module,exports){
 'use strict';
 
 module.exports = function (code, respData, res, resolve, reject, skipJsonParsing) {
@@ -13097,7 +11790,7 @@ module.exports = function (code, respData, res, resolve, reject, skipJsonParsing
   }
 };
 
-},{}],78:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 'use strict';
 
 function find(obj, desc) {
@@ -13119,7 +11812,7 @@ module.exports = function (obj, props) {
   });
 };
 
-},{}],79:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -13173,235 +11866,7 @@ function whoami() {
 
 module.exports = whoami;
 
-},{"./util/response-helper":77,"http":95,"https":61,"q":84,"tiny-conf":"tiny-conf"}],80:[function(require,module,exports){
-(function (process){
-// Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-// resolves . and .. elements in a path array with directory names there
-// must be no slashes, empty elements, or device names (c:\) in the array
-// (so also no leading and trailing slashes - it does not distinguish
-// relative and absolute paths)
-function normalizeArray(parts, allowAboveRoot) {
-  // if the path tries to go above the root, `up` ends up > 0
-  var up = 0;
-  for (var i = parts.length - 1; i >= 0; i--) {
-    var last = parts[i];
-    if (last === '.') {
-      parts.splice(i, 1);
-    } else if (last === '..') {
-      parts.splice(i, 1);
-      up++;
-    } else if (up) {
-      parts.splice(i, 1);
-      up--;
-    }
-  }
-
-  // if the path is allowed to go above the root, restore leading ..s
-  if (allowAboveRoot) {
-    for (; up--; up) {
-      parts.unshift('..');
-    }
-  }
-
-  return parts;
-}
-
-// Split a filename into [root, dir, basename, ext], unix version
-// 'root' is just a slash, or nothing.
-var splitPathRe =
-    /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
-var splitPath = function(filename) {
-  return splitPathRe.exec(filename).slice(1);
-};
-
-// path.resolve([from ...], to)
-// posix version
-exports.resolve = function() {
-  var resolvedPath = '',
-      resolvedAbsolute = false;
-
-  for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
-    var path = (i >= 0) ? arguments[i] : process.cwd();
-
-    // Skip empty and invalid entries
-    if (typeof path !== 'string') {
-      throw new TypeError('Arguments to path.resolve must be strings');
-    } else if (!path) {
-      continue;
-    }
-
-    resolvedPath = path + '/' + resolvedPath;
-    resolvedAbsolute = path.charAt(0) === '/';
-  }
-
-  // At this point the path should be resolved to a full absolute path, but
-  // handle relative paths to be safe (might happen when process.cwd() fails)
-
-  // Normalize the path
-  resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
-    return !!p;
-  }), !resolvedAbsolute).join('/');
-
-  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
-};
-
-// path.normalize(path)
-// posix version
-exports.normalize = function(path) {
-  var isAbsolute = exports.isAbsolute(path),
-      trailingSlash = substr(path, -1) === '/';
-
-  // Normalize the path
-  path = normalizeArray(filter(path.split('/'), function(p) {
-    return !!p;
-  }), !isAbsolute).join('/');
-
-  if (!path && !isAbsolute) {
-    path = '.';
-  }
-  if (path && trailingSlash) {
-    path += '/';
-  }
-
-  return (isAbsolute ? '/' : '') + path;
-};
-
-// posix version
-exports.isAbsolute = function(path) {
-  return path.charAt(0) === '/';
-};
-
-// posix version
-exports.join = function() {
-  var paths = Array.prototype.slice.call(arguments, 0);
-  return exports.normalize(filter(paths, function(p, index) {
-    if (typeof p !== 'string') {
-      throw new TypeError('Arguments to path.join must be strings');
-    }
-    return p;
-  }).join('/'));
-};
-
-
-// path.relative(from, to)
-// posix version
-exports.relative = function(from, to) {
-  from = exports.resolve(from).substr(1);
-  to = exports.resolve(to).substr(1);
-
-  function trim(arr) {
-    var start = 0;
-    for (; start < arr.length; start++) {
-      if (arr[start] !== '') break;
-    }
-
-    var end = arr.length - 1;
-    for (; end >= 0; end--) {
-      if (arr[end] !== '') break;
-    }
-
-    if (start > end) return [];
-    return arr.slice(start, end - start + 1);
-  }
-
-  var fromParts = trim(from.split('/'));
-  var toParts = trim(to.split('/'));
-
-  var length = Math.min(fromParts.length, toParts.length);
-  var samePartsLength = length;
-  for (var i = 0; i < length; i++) {
-    if (fromParts[i] !== toParts[i]) {
-      samePartsLength = i;
-      break;
-    }
-  }
-
-  var outputParts = [];
-  for (var i = samePartsLength; i < fromParts.length; i++) {
-    outputParts.push('..');
-  }
-
-  outputParts = outputParts.concat(toParts.slice(samePartsLength));
-
-  return outputParts.join('/');
-};
-
-exports.sep = '/';
-exports.delimiter = ':';
-
-exports.dirname = function(path) {
-  var result = splitPath(path),
-      root = result[0],
-      dir = result[1];
-
-  if (!root && !dir) {
-    // No dirname whatsoever
-    return '.';
-  }
-
-  if (dir) {
-    // It has a dirname, strip trailing slash
-    dir = dir.substr(0, dir.length - 1);
-  }
-
-  return root + dir;
-};
-
-
-exports.basename = function(path, ext) {
-  var f = splitPath(path)[2];
-  // TODO: make this comparison case-insensitive on windows?
-  if (ext && f.substr(-1 * ext.length) === ext) {
-    f = f.substr(0, f.length - ext.length);
-  }
-  return f;
-};
-
-
-exports.extname = function(path) {
-  return splitPath(path)[3];
-};
-
-function filter (xs, f) {
-    if (xs.filter) return xs.filter(f);
-    var res = [];
-    for (var i = 0; i < xs.length; i++) {
-        if (f(xs[i], i, xs)) res.push(xs[i]);
-    }
-    return res;
-}
-
-// String.prototype.substr - negative index don't work in IE8
-var substr = 'ab'.substr(-1) === 'b'
-    ? function (str, start, len) { return str.substr(start, len) }
-    : function (str, start, len) {
-        if (start < 0) start = str.length + start;
-        return str.substr(start, len);
-    }
-;
-
-}).call(this,require('_process'))
-},{"_process":82}],81:[function(require,module,exports){
+},{"./util/response-helper":74,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf"}],77:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -13448,7 +11913,7 @@ function nextTick(fn, arg1, arg2, arg3) {
 }
 
 }).call(this,require('_process'))
-},{"_process":82}],82:[function(require,module,exports){
+},{"_process":78}],78:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -13610,7 +12075,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],83:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/punycode v1.4.1 by @mathias */
 ;(function(root) {
@@ -14147,7 +12612,7 @@ process.umask = function() { return 0; };
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],84:[function(require,module,exports){
+},{}],80:[function(require,module,exports){
 (function (process){
 // vim:ts=4:sts=4:sw=4:
 /*!
@@ -16199,7 +14664,7 @@ return Q;
 });
 
 }).call(this,require('_process'))
-},{"_process":82}],85:[function(require,module,exports){
+},{"_process":78}],81:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -16285,7 +14750,7 @@ var isArray = Array.isArray || function (xs) {
   return Object.prototype.toString.call(xs) === '[object Array]';
 };
 
-},{}],86:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -16372,13 +14837,13 @@ var objectKeys = Object.keys || function (obj) {
   return res;
 };
 
-},{}],87:[function(require,module,exports){
+},{}],83:[function(require,module,exports){
 'use strict';
 
 exports.decode = exports.parse = require('./decode');
 exports.encode = exports.stringify = require('./encode');
 
-},{"./decode":85,"./encode":86}],88:[function(require,module,exports){
+},{"./decode":81,"./encode":82}],84:[function(require,module,exports){
 // a duplex stream is just a stream that is both readable and writable.
 // Since JS doesn't have multiple prototypal inheritance, this class
 // prototypally inherits from Readable, and then parasitically from
@@ -16454,7 +14919,7 @@ function forEach(xs, f) {
     f(xs[i], i);
   }
 }
-},{"./_stream_readable":90,"./_stream_writable":92,"core-util-is":59,"inherits":63,"process-nextick-args":81}],89:[function(require,module,exports){
+},{"./_stream_readable":86,"./_stream_writable":88,"core-util-is":58,"inherits":62,"process-nextick-args":77}],85:[function(require,module,exports){
 // a passthrough stream.
 // basically just the most minimal sort of Transform stream.
 // Every written chunk gets output as-is.
@@ -16481,7 +14946,7 @@ function PassThrough(options) {
 PassThrough.prototype._transform = function (chunk, encoding, cb) {
   cb(null, chunk);
 };
-},{"./_stream_transform":91,"core-util-is":59,"inherits":63}],90:[function(require,module,exports){
+},{"./_stream_transform":87,"core-util-is":58,"inherits":62}],86:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -17377,7 +15842,7 @@ function indexOf(xs, x) {
   return -1;
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":88,"_process":82,"buffer":57,"buffer-shims":56,"core-util-is":59,"events":60,"inherits":63,"isarray":65,"process-nextick-args":81,"string_decoder/":99,"util":55}],91:[function(require,module,exports){
+},{"./_stream_duplex":84,"_process":78,"buffer":56,"buffer-shims":55,"core-util-is":58,"events":59,"inherits":62,"isarray":64,"process-nextick-args":77,"string_decoder/":95,"util":54}],87:[function(require,module,exports){
 // a transform stream is a readable/writable stream where you do
 // something with the data.  Sometimes it's called a "filter",
 // but that's not a great name for it, since that implies a thing where
@@ -17558,7 +16023,7 @@ function done(stream, er) {
 
   return stream.push(null);
 }
-},{"./_stream_duplex":88,"core-util-is":59,"inherits":63}],92:[function(require,module,exports){
+},{"./_stream_duplex":84,"core-util-is":58,"inherits":62}],88:[function(require,module,exports){
 (function (process){
 // A bit simpler than readable streams.
 // Implement an async ._write(chunk, encoding, cb), and it'll handle all
@@ -18087,7 +16552,7 @@ function CorkedRequest(state) {
   };
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":88,"_process":82,"buffer":57,"buffer-shims":56,"core-util-is":59,"events":60,"inherits":63,"process-nextick-args":81,"util-deprecate":104}],93:[function(require,module,exports){
+},{"./_stream_duplex":84,"_process":78,"buffer":56,"buffer-shims":55,"core-util-is":58,"events":59,"inherits":62,"process-nextick-args":77,"util-deprecate":100}],89:[function(require,module,exports){
 (function (process){
 var Stream = (function (){
   try {
@@ -18107,7 +16572,7 @@ if (!process.browser && process.env.READABLE_STREAM === 'disable' && Stream) {
 }
 
 }).call(this,require('_process'))
-},{"./lib/_stream_duplex.js":88,"./lib/_stream_passthrough.js":89,"./lib/_stream_readable.js":90,"./lib/_stream_transform.js":91,"./lib/_stream_writable.js":92,"_process":82}],94:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":84,"./lib/_stream_passthrough.js":85,"./lib/_stream_readable.js":86,"./lib/_stream_transform.js":87,"./lib/_stream_writable.js":88,"_process":78}],90:[function(require,module,exports){
 (function (process){
 exports = module.exports = SemVer;
 
@@ -19314,7 +17779,7 @@ function prerelease(version, loose) {
 }
 
 }).call(this,require('_process'))
-},{"_process":82}],95:[function(require,module,exports){
+},{"_process":78}],91:[function(require,module,exports){
 (function (global){
 var ClientRequest = require('./lib/request')
 var extend = require('xtend')
@@ -19396,7 +17861,7 @@ http.METHODS = [
 	'UNSUBSCRIBE'
 ]
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./lib/request":97,"builtin-status-codes":58,"url":102,"xtend":106}],96:[function(require,module,exports){
+},{"./lib/request":93,"builtin-status-codes":57,"url":98,"xtend":102}],92:[function(require,module,exports){
 (function (global){
 exports.fetch = isFunction(global.fetch) && isFunction(global.ReadableStream)
 
@@ -19440,7 +17905,7 @@ function isFunction (value) {
 xhr = null // Help gc
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],97:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -19721,7 +18186,7 @@ var unsafeHeaders = [
 ]
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":96,"./response":98,"_process":82,"buffer":57,"inherits":63,"readable-stream":93,"to-arraybuffer":100}],98:[function(require,module,exports){
+},{"./capability":92,"./response":94,"_process":78,"buffer":56,"inherits":62,"readable-stream":89,"to-arraybuffer":96}],94:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -19905,7 +18370,7 @@ IncomingMessage.prototype._onXHRProgress = function () {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":96,"_process":82,"buffer":57,"inherits":63,"readable-stream":93}],99:[function(require,module,exports){
+},{"./capability":92,"_process":78,"buffer":56,"inherits":62,"readable-stream":89}],95:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -20128,7 +18593,7 @@ function base64DetectIncompleteChar(buffer) {
   this.charLength = this.charReceived ? 3 : 0;
 }
 
-},{"buffer":57}],100:[function(require,module,exports){
+},{"buffer":56}],96:[function(require,module,exports){
 var Buffer = require('buffer').Buffer
 
 module.exports = function (buf) {
@@ -20157,7 +18622,7 @@ module.exports = function (buf) {
 	}
 }
 
-},{"buffer":57}],101:[function(require,module,exports){
+},{"buffer":56}],97:[function(require,module,exports){
 (function (root, factory) {
     if (typeof exports === 'object') {
         module.exports = factory();
@@ -20351,7 +18816,7 @@ module.exports = function (buf) {
   return new UrlTemplate();
 }));
 
-},{}],102:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -21085,7 +19550,7 @@ Url.prototype.parseHost = function() {
   if (host) this.hostname = host;
 };
 
-},{"./util":103,"punycode":83,"querystring":87}],103:[function(require,module,exports){
+},{"./util":99,"punycode":79,"querystring":83}],99:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -21103,7 +19568,7 @@ module.exports = {
   }
 };
 
-},{}],104:[function(require,module,exports){
+},{}],100:[function(require,module,exports){
 (function (global){
 
 /**
@@ -21174,7 +19639,7 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],105:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 var waxeye;
 /*
 # Waxeye Parser Generator
@@ -21446,7 +19911,7 @@ if (typeof module !== "undefined" && module !== null) {
   module.exports.State = waxeye.State;
   module.exports.WaxeyeParser = waxeye.WaxeyeParser;
 }
-},{}],106:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
 module.exports = extend
 
 var hasOwnProperty = Object.prototype.hasOwnProperty;
