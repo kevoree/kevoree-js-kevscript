@@ -7,7 +7,7 @@ module.exports = function (grunt) {
     browserify: {
       main: {
         options: {
-          external: ['kevoree-library', 'tiny-conf'],
+          external: ['kevoree-library', 'tiny-conf', 'kevoree-validator'],
           browserifyOptions: {
             standalone: 'KevoreeKevscript'
           }

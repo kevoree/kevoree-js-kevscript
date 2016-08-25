@@ -90,7 +90,22 @@ module.exports = KevScript;
 module.exports.cache = caches;
 module.exports.Parser = kevs.Parser;
 
-},{"./cache":4,"./interpreter":14,"./model-interpreter":16,"./parser":17,"./shortid":18,"tiny-conf":"tiny-conf"}],2:[function(require,module,exports){
+},{"./cache":5,"./interpreter":15,"./model-interpreter":16,"./parser":17,"./shortid":18,"tiny-conf":"tiny-conf"}],2:[function(require,module,exports){
+'use strict';
+
+var util = require('util');
+
+function KevScriptError(message) {
+  Error.captureStackTrace(this, this.constructor);
+  this.name = this.constructor.name;
+  this.message = message;
+}
+
+util.inherits(KevScriptError, Error);
+
+module.exports = KevScriptError;
+
+},{"util":103}],3:[function(require,module,exports){
 'use strict';
 
 /**
@@ -142,7 +157,7 @@ MemoryCache.prototype = {
 
 module.exports = MemoryCache;
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 'use strict';
 
 /**
@@ -185,12 +200,12 @@ NoCache.prototype = {
 
 module.exports = NoCache;
 
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 // Created by leiko on 06/05/15 17:59
 module.exports.NoCache = require('./NoCache');
 module.exports.MemoryCache = require('./MemoryCache');
 
-},{"./MemoryCache":2,"./NoCache":3}],5:[function(require,module,exports){
+},{"./MemoryCache":3,"./NoCache":4}],6:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model) {
@@ -222,7 +237,7 @@ module.exports = function (model) {
   return str;
 };
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model) {
@@ -245,7 +260,7 @@ module.exports = function (model) {
   return str;
 };
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model) {
@@ -276,7 +291,7 @@ module.exports = function (model) {
   return str;
 };
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 'use strict';
 
 var getFQN = require('../getFQN');
@@ -388,7 +403,7 @@ module.exports = function (model) {
   return str.replace(/kevoree\./g, '');
 };
 
-},{"../getFQN":13}],9:[function(require,module,exports){
+},{"../getFQN":14}],10:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model) {
@@ -430,7 +445,7 @@ module.exports = function (model) {
   return str;
 };
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model) {
@@ -457,7 +472,7 @@ module.exports = function (model) {
   return str;
 };
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model) {
@@ -475,7 +490,7 @@ module.exports = function (model) {
   return str;
 };
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 'use strict';
 
 function lexValue(value) {
@@ -567,7 +582,7 @@ module.exports = function (model) {
   return str;
 };
 
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 'use strict';
 
 var semver = require('semver');
@@ -594,11 +609,12 @@ module.exports = function getFQN(tdef) {
   return fqn;
 };
 
-},{"semver":90}],14:[function(require,module,exports){
+},{"semver":91}],15:[function(require,module,exports){
 'use strict';
 
-var kevoree = require('kevoree-library').org.kevoree,
-  async = require('async');
+var kevoree = require('kevoree-library');
+var async = require('async');
+var modelValidator = require('kevoree-validator');
 
 // retrieve statements processors
 var statements = {
@@ -688,7 +704,18 @@ function interpreter(ast, ctxModel, opts, callback) {
 
   // execute tasks
   async.series(tasks, function (err) {
-    callback(err, model);
+    if (err) {
+      callback(err);
+    } else {
+      var error;
+      try {
+        modelValidator(model);
+      } catch (err) {
+        error = err;
+      } finally {
+        callback(error, model);
+      }
+    }
   });
 }
 
@@ -700,41 +727,7 @@ module.exports.setCacheManager = function (cacheMgr) {
   statements.typeDef.setCacheManager(cacheMgr);
 };
 
-},{"./statements/add":19,"./statements/addBinding":20,"./statements/addRepo":21,"./statements/anything":22,"./statements/attach":23,"./statements/delBinding":24,"./statements/detach":25,"./statements/doubleQuoteLine":26,"./statements/escaped":27,"./statements/include":28,"./statements/instancePath":29,"./statements/move":30,"./statements/nameList":31,"./statements/namespace":32,"./statements/network":33,"./statements/newLine":34,"./statements/pause":35,"./statements/realString":36,"./statements/realStringNoNewLine":37,"./statements/remove":38,"./statements/repoString":39,"./statements/set":40,"./statements/singleQuoteLine":41,"./statements/start":42,"./statements/stop":43,"./statements/string":44,"./statements/string2":45,"./statements/string3":46,"./statements/typeDef":47,"./statements/typeFQN":48,"./statements/version":49,"./statements/wildcard":50,"async":52,"kevoree-library":"kevoree-library"}],15:[function(require,module,exports){
-'use strict';
-
-function findChanNodeGroupByName(model, name) {
-  function findByName(elem) {
-    var elems = (model[elem]) ? model[elem].iterator() : null;
-    if (elems !== null) {
-      while (elems.hasNext()) {
-        var entity = elems.next();
-        if (entity.name === name) {
-          return entity;
-        }
-      }
-    }
-    return null;
-  }
-
-  return findByName('nodes') || findByName('groups') || findByName('hubs') || null;
-}
-
-function findComponent(model, nodeName, compName) {
-  var node = model.findNodesByID(nodeName);
-  if (node) {
-    return node.findComponentsByID(compName);
-  } else {
-    return null;
-  }
-}
-
-module.exports = {
-  findEntityByName: findChanNodeGroupByName,
-  findComponentByName: findComponent
-};
-
-},{}],16:[function(require,module,exports){
+},{"./statements/add":19,"./statements/addBinding":20,"./statements/addRepo":21,"./statements/anything":22,"./statements/attach":23,"./statements/delBinding":24,"./statements/detach":25,"./statements/doubleQuoteLine":26,"./statements/escaped":27,"./statements/include":28,"./statements/instancePath":29,"./statements/move":30,"./statements/nameList":31,"./statements/namespace":32,"./statements/network":33,"./statements/newLine":34,"./statements/pause":35,"./statements/realString":36,"./statements/realStringNoNewLine":37,"./statements/remove":38,"./statements/repoString":39,"./statements/set":40,"./statements/singleQuoteLine":41,"./statements/start":42,"./statements/stop":43,"./statements/string":44,"./statements/string2":45,"./statements/string3":46,"./statements/typeDef":47,"./statements/typeFQN":48,"./statements/version":49,"./statements/wildcard":50,"async":52,"kevoree-library":"kevoree-library","kevoree-validator":"kevoree-validator"}],16:[function(require,module,exports){
 var repos       = require('./elements/repositories'),
     includes    = require('./elements/includes'),
     instances   = require('./elements/instances'),
@@ -772,7 +765,7 @@ module.exports = function (model) {
 
     return kevscript.replace(/^([\n\t\r])+/, '').replace(/([\n\t\r])+$/, '\n');
 };
-},{"./elements/attaches":5,"./elements/bindings":6,"./elements/includes":7,"./elements/instances":8,"./elements/lifecycles":9,"./elements/networks":10,"./elements/repositories":11,"./elements/sets":12}],17:[function(require,module,exports){
+},{"./elements/attaches":6,"./elements/bindings":7,"./elements/includes":8,"./elements/instances":9,"./elements/lifecycles":10,"./elements/networks":11,"./elements/repositories":12,"./elements/sets":13}],17:[function(require,module,exports){
 /*
  * Generated by the Waxeye Parser Generator - version 0.8.0
  * www.waxeye.org
@@ -1164,7 +1157,7 @@ if (typeof module !== 'undefined') {
     module.exports.Parser = Parser;
 }
 
-},{"waxeye":101}],18:[function(require,module,exports){
+},{"waxeye":104}],18:[function(require,module,exports){
 var CHARS = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 module.exports = function shortid() {
@@ -1179,6 +1172,7 @@ module.exports = function shortid() {
 'use strict';
 
 var kevoree = require('kevoree-library');
+var KevScriptError = require('../KevScriptError');
 
 function inflateDictionary(instance) {
   var factory = new kevoree.factory.DefaultKevoreeFactory();
@@ -1186,7 +1180,7 @@ function inflateDictionary(instance) {
   if (dicType) {
     var dic = factory.createDictionary().withGenerated_KMF_ID(0);
     dicType.attributes.array.forEach(function (attr) {
-      if (!attr.fragmentDependant && attr.defaultValue) {
+      if (!attr.fragmentDependant) {
         var dicEntry = factory.createValue();
         dicEntry.name = attr.name;
         dicEntry.value = attr.defaultValue;
@@ -1249,14 +1243,14 @@ module.exports = function (model, statements, stmt, opts, cb) {
               inflateDictionary(instance);
               model.addHubs(instance);
             } else {
-              throw new Error('Unable to find a node, channel or group with name "' + instancePath + '"');
+              throw new KevScriptError('Unable to find a node, channel or group with name "' + instancePath + '"');
             }
 
           } else if (instancePath.length === 2) {
             // component/subNode
             if (tdef.metaClassName() === 'org.kevoree.NodeType') {
               if (instancePath[0] === '*') {
-                throw new Error('Add statement with "*" only works for component type');
+                throw new KevScriptError('Add statement with "*" only works for component type');
               } else {
                 // add a subNode to a node
                 var hostNode = model.findNodesByID(instancePath[0]);
@@ -1270,7 +1264,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
                   instance.host = hostNode;
                   model.addNodes(instance);
                 } else {
-                  throw new Error('Unable to add node "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist');
+                  throw new KevScriptError('Unable to add node "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist');
                 }
               }
             } else if (tdef.metaClassName() === 'org.kevoree.ComponentType') {
@@ -1299,14 +1293,14 @@ module.exports = function (model, statements, stmt, opts, cb) {
                   createPorts(instance);
                   node.addComponents(instance);
                 } else {
-                  throw new Error('Unable to add component "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist');
+                  throw new KevScriptError('Unable to add component "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist');
                 }
               }
             } else {
-              throw new Error('Instance "' + instancePath[1]+ '" of type ' + tdef.metaClassName() + ' cannot be added to a node');
+              throw new KevScriptError('Instance "' + instancePath[1]+ '" of type ' + tdef.metaClassName() + ' cannot be added to a node');
             }
           } else {
-            throw new Error('Instance path for "add" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid');
+            throw new KevScriptError('Instance path for "add" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid');
           }
         });
       } catch (err) {
@@ -1318,10 +1312,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
   });
 };
 
-},{"kevoree-library":"kevoree-library"}],20:[function(require,module,exports){
+},{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],20:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
+var KevScriptError = require('../KevScriptError');
 
 function hasBinding(model, chan, port) {
   return model.mBindings.array.some(function (binding) {
@@ -1346,11 +1341,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (chan) {
           chans.push(chan);
         } else {
-          throw new Error('Unable to find chan instance "'+target[0]+'". Bind failed');
+          throw new KevScriptError('Unable to find chan instance "'+target[0]+'". Bind failed');
         }
       }
     } else {
-      throw new Error('Bind target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Bind target path is invalid ('+target.join('.')+')');
     }
 
     var nodes = [];
@@ -1364,11 +1359,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (node) {
           nodes.push(node);
         } else {
-          throw new Error('Unable to find node instance "'+portPath[0]+'". Bind failed');
+          throw new KevScriptError('Unable to find node instance "'+portPath[0]+'". Bind failed');
         }
       }
     } else {
-      throw new Error('"'+portPath.join('.')+'" is not a valid bind path for a port');
+      throw new KevScriptError('"'+portPath.join('.')+'" is not a valid bind path for a port');
     }
 
     var components = [];
@@ -1381,7 +1376,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (comp) {
           components.push(comp);
         } else {
-          throw new Error('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Bind failed');
+          throw new KevScriptError('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Bind failed');
         }
       }
     });
@@ -1402,7 +1397,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
             // add output
             ports.push(port);
           } else {
-            throw new Error('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Bind failed');
+            throw new KevScriptError('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Bind failed');
           }
         }
       }
@@ -1428,7 +1423,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"kevoree-library":"kevoree-library"}],21:[function(require,module,exports){
+},{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],21:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
@@ -1456,13 +1451,14 @@ module.exports = function (model, statements, stmt) {
 'use strict';
 
 var kevoree = require('kevoree-library');
+var KevScriptError = require('../KevScriptError');
 
 function processFragmentDictionary(node) {
   var factory = new kevoree.factory.DefaultKevoreeFactory();
   node.groups.array.forEach(function (group) {
     var fDic = group.findFragmentDictionaryByID(node.name);
     if (!fDic) {
-      fDic = factory.createFragmentDictionary();
+      fDic = factory.createFragmentDictionary().withGenerated_KMF_ID(0);
       fDic.name = node.name;
       group.addFragmentDictionary(fDic);
     }
@@ -1485,7 +1481,7 @@ function processFragmentDictionary(node) {
         if (binding.hub) {
           var fDic = binding.hub.findFragmentDictionaryByID(node.name);
           if (!fDic) {
-            fDic = factory.createFragmentDictionary();
+            fDic = factory.createFragmentDictionary().withGenerated_KMF_ID(0);
             fDic.name = node.name;
             binding.hub.addFragmentDictionary(fDic);
           }
@@ -1521,11 +1517,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (group) {
           groups.push(group);
         } else {
-          throw new Error('Unable to find group instance "'+target[0]+'". Attach failed');
+          throw new KevScriptError('Unable to find group instance "'+target[0]+'". Attach failed');
         }
       }
     } else {
-      throw new Error('Attach target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Attach target path is invalid ('+target.join('.')+')');
     }
 
     nameList.forEach(function (instancePath) {
@@ -1549,11 +1545,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
             });
             processFragmentDictionary(node);
           } else {
-            throw new Error('Unable to attach node instance "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to attach node instance "'+instancePath[0]+'". Instance does not exist');
           }
         }
       } else {
-        throw new Error('"'+instancePath.join('.')+'" is not a valid attach path for a node');
+        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid attach path for a node');
       }
     });
   } catch (err) {
@@ -1563,8 +1559,10 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"kevoree-library":"kevoree-library"}],24:[function(require,module,exports){
+},{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],24:[function(require,module,exports){
 'use strict';
+
+var KevScriptError = require('../KevScriptError');
 
 function getBindings(model, chan, port) {
   return model.mBindings.array.filter(function (binding) {
@@ -1591,11 +1589,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (chan) {
           chans.push(chan);
         } else {
-          throw new Error('Unable to find chan instance "'+target[0]+'". Unbind failed');
+          throw new KevScriptError('Unable to find chan instance "'+target[0]+'". Unbind failed');
         }
       }
     } else {
-      throw new Error('Unbind target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Unbind target path is invalid ('+target.join('.')+')');
     }
 
     var nodes = [];
@@ -1609,11 +1607,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (node) {
           nodes.push(node);
         } else {
-          throw new Error('Unable to find node instance "'+portPath[0]+'". Unbind failed');
+          throw new KevScriptError('Unable to find node instance "'+portPath[0]+'". Unbind failed');
         }
       }
     } else {
-      throw new Error('"'+portPath.join('.')+'" is not a valid unbind path for a port');
+      throw new KevScriptError('"'+portPath.join('.')+'" is not a valid unbind path for a port');
     }
 
     var components = [];
@@ -1626,7 +1624,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (comp) {
           components.push(comp);
         } else {
-          throw new Error('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Unbind failed');
+          throw new KevScriptError('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Unbind failed');
         }
       }
     });
@@ -1647,7 +1645,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
             // add output
             ports.push(port);
           } else {
-            throw new Error('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Unbind failed');
+            throw new KevScriptError('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Unbind failed');
           }
         }
       }
@@ -1673,8 +1671,10 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{}],25:[function(require,module,exports){
+},{"../KevScriptError":2}],25:[function(require,module,exports){
 'use strict';
+
+var KevScriptError = require('../KevScriptError');
 
 function processFragmentDictionary(node) {
   node.groups.array.forEach(function (group) {
@@ -1713,11 +1713,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (group) {
           groups.push(group);
         } else {
-          throw new Error('Unable to find group instance "'+target[0]+'". Detach failed');
+          throw new KevScriptError('Unable to find group instance "'+target[0]+'". Detach failed');
         }
       }
     } else {
-      throw new Error('Detach target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Detach target path is invalid ('+target.join('.')+')');
     }
 
     nameList.forEach(function (instancePath) {
@@ -1741,11 +1741,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
               group.removeSubNodes(node);
             });
           } else {
-            throw new Error('Unable to detach node instance "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to detach node instance "'+instancePath[0]+'". Instance does not exist');
           }
         }
       } else {
-        throw new Error('"'+instancePath.join('.')+'" is not a valid detach path for a node');
+        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid detach path for a node');
       }
     });
   } catch (err) {
@@ -1755,7 +1755,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{}],26:[function(require,module,exports){
+},{"../KevScriptError":2}],26:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
 },{"dup":22}],27:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
@@ -1781,6 +1781,8 @@ module.exports = function (model, statements, stmt, opts) {
 },{}],30:[function(require,module,exports){
 'use strict';
 
+var KevScriptError = require('../KevScriptError');
+
 module.exports = function (model, statements, stmt, opts, cb) {
   var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
   var target   = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
@@ -1796,17 +1798,17 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (node) {
           targetNodes.push(node);
         } else {
-          throw new Error('Unable to find node instance "'+target[0]+'". Move failed');
+          throw new KevScriptError('Unable to find node instance "'+target[0]+'". Move failed');
         }
       }
     } else {
-      throw new Error('Move target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Move target path is invalid ('+target.join('.')+')');
     }
 
     nameList.forEach(function (instancePath) {
       if (instancePath.length === 1) {
         if (instancePath[0] === '*') {
-          throw new Error('Wildcard "*" cannot be used for nodes. Move failed');
+          throw new KevScriptError('Wildcard "*" cannot be used for nodes. Move failed');
         } else {
           // specific node instance to target
           var nodeToMove = model.findNodesByID(instancePath[0]);
@@ -1816,7 +1818,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
               nodeToMove.host = node;
             });
           } else {
-            throw new Error('Unable to move node instance "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to move node instance "'+instancePath[0]+'". Instance does not exist');
           }
         }
       } else if (instancePath.length === 2) {
@@ -1830,7 +1832,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
           if (node) {
             hosts.push(node);
           } else {
-            throw new Error('Unable to find node instance "'+instancePath[0]+'". Move failed');
+            throw new KevScriptError('Unable to find node instance "'+instancePath[0]+'". Move failed');
           }
         }
 
@@ -1856,7 +1858,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
           });
         });
       } else {
-        throw new Error('"'+instancePath.join('.')+'" is not a valid move path for an instance');
+        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid move path for an instance');
       }
     });
   } catch (err) {
@@ -1866,7 +1868,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{}],31:[function(require,module,exports){
+},{"../KevScriptError":2}],31:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts) {
@@ -1889,6 +1891,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
 'use strict';
 
 var kevoree = require('kevoree-library');
+var KevScriptError = require('../KevScriptError');
 
 module.exports = function (model, statements, stmt, opts, cb) {
     var networkPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
@@ -1907,7 +1910,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
           if (node) {
             nodes.push(node);
           } else {
-            throw new Error('Unable to find node instance "'+networkPath[0]+'". Network failed');
+            throw new KevScriptError('Unable to find node instance "'+networkPath[0]+'". Network failed');
           }
         }
 
@@ -1958,7 +1961,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
           net.value = value;
         });
       } else {
-        throw new Error('"'+networkPath.join('.')+'" is not a network path. Network path must look like "nodeName.netType.netName"');
+        throw new KevScriptError('"'+networkPath.join('.')+'" is not a network path. Network path must look like "nodeName.netType.netName"');
       }
     } catch (err) {
       error = err;
@@ -1967,7 +1970,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
     }
 };
 
-},{"kevoree-library":"kevoree-library"}],34:[function(require,module,exports){
+},{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],34:[function(require,module,exports){
 'use strict';
 
 module.exports = function () {
@@ -2007,33 +2010,10 @@ module.exports = function (model, statements, stmt) {
 },{}],38:[function(require,module,exports){
 'use strict';
 
-var helper = require('../model-helper');
+var KevScriptError = require('../KevScriptError');
 
 module.exports = function (model, statements, stmt, opts, cb) {
   var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-
-  function doRemove1(nodeName, third) {
-    var node = model.findNodesByID(nodeName);
-    if (node) {
-      if (third === '*') {
-        // remove all components within this node
-        var compz = node.components.iterator();
-        while (compz.hasNext()) {
-          doRemove(compz.next());
-        }
-
-      } else {
-        var comp = node.findComponentsByID(third);
-        if (comp) {
-          doRemove(comp);
-        } else {
-          throw new Error('Unable to find component instance "' + third + '" in node instance "' + nodeName + '" in model (remove ' + nameList.toString() + ')');
-        }
-      }
-    } else {
-      throw new Error('Unable to find node instance "' + nodeName + '" in model (remove ' + nameList.toString() + ')');
-    }
-  }
 
   function removeNode(node) {
     // remove groups fragment dictionary related to this node
@@ -2162,7 +2142,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
               removeChannel(instance);
             }
           } else {
-            throw new Error('Unable to remove instance "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to remove instance "'+instancePath[0]+'". Instance does not exist');
           }
         }
 
@@ -2179,12 +2159,12 @@ module.exports = function (model, statements, stmt, opts, cb) {
           if (hostNode) {
             removeFromNode(instancePath[1], hostNode);
           } else {
-            throw new Error('Unable to remove instances from "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to remove instances from "'+instancePath[0]+'". Instance does not exist');
           }
         }
 
       } else {
-         throw new Error('Instance path for "remove" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid');
+         throw new KevScriptError('Instance path for "remove" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid');
       }
     });
   } catch (err) {
@@ -2194,64 +2174,70 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"../model-helper":15}],39:[function(require,module,exports){
+},{"../KevScriptError":2}],39:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
 },{"dup":22}],40:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
+var KevScriptError = require('../KevScriptError');
 
-function updateDictionary(instance, attrName) {
-  var factory = new kevoree.factory.DefaultKevoreeFactory();
-  if (instance.typeDefinition.dictionaryType) {
-    if (!instance.dictionary) {
-      instance.dictionary = factory.createDictionary().withGenerated_KMF_ID(0);
+function attrExistForType(dictionaryType, attrName, isFragment) {
+  if (dictionaryType) {
+    var type = dictionaryType.findAttributesByID(attrName);
+    if (type) {
+      return type.fragmentDependant === isFragment;
     }
-    var attrTypes = instance.typeDefinition.dictionaryType.select('attributes[' + attrName + ']').array;
-    if (attrTypes.length === 0) {
-      throw new Error('Attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
-    } else {
-      attrTypes.forEach(function (attrType) {
-        if (!attrType.fragmentDependant) {
-          var attr = factory.createValue();
-          attr.name = attrType.name;
-          instance.dictionary.addValues(attr);
-        } else {
-          throw new Error('Attribute "'+attrType.name+'" in "'+instance.typeDefinition.name+'" must be set with a fragment. Set failed');
-        }
-      });
-    }
-  } else {
-    throw new Error('Attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
   }
+  return false;
 }
 
-function updateFragmentDictionary(dic, instance, attrName) {
+function updateDictionary(dictionary, instance, attrName, value, isFragment) {
   var factory = new kevoree.factory.DefaultKevoreeFactory();
-  if (instance.typeDefinition.dictionaryType) {
-    var attrTypes = instance.typeDefinition.dictionaryType.select('attributes[' + attrName + ']').array;
-    if (attrTypes.length === 0) {
-      throw new Error('Fragmented attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
-    } else {
-      attrTypes.forEach(function (attrType) {
-        if (attrType.fragmentDependant) {
-          var attr = factory.createValue();
-          attr.name = attrType.name;
-          dic.addValues(attr);
-        } else {
-          throw new Error('Fragmented attribute "'+attrType.name+'" in "'+instance.typeDefinition.name+'" is not fragmented. Set failed');
+  if (attrName === '*') {
+    // all attributes
+    if (instance.typeDefinition.dictionaryType) {
+      instance.typeDefinition.dictionaryType.attributes.array.forEach(function (attrType) {
+        if (attrType.fragmentDependant === isFragment) {
+          var attr = dictionary.findValuesByID(attrType.name);
+          if (attr) {
+            attr.value = value;
+          } else {
+            attr = factory.createValue();
+            attr.name = attrType.name;
+            attr.value = value;
+            dictionary.addValues(attr);
+          }
         }
       });
     }
   } else {
-    throw new Error('Fragmented attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
+    // specific attribute
+    var attr = dictionary.findValuesByID(attrName);
+    if (attr) {
+      attr.value = value;
+    } else {
+      // check if attribute exists in dictionary type
+      if (attrExistForType(instance.typeDefinition.dictionaryType, attrName, isFragment)) {
+        attr = factory.createValue();
+        attr.name = attrName;
+        attr.value = value;
+        dictionary.addValues(attr);
+      } else {
+        if (isFragment) {
+          throw new KevScriptError('Fragmented attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
+        } else {
+          throw new KevScriptError('Attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
+        }
+      }
+    }
   }
 }
 
 module.exports = function (model, statements, stmt, opts, cb) {
   var attrPath, nodePath, value, error;
+  var factory = new kevoree.factory.DefaultKevoreeFactory();
   try {
-    var attributes = [];
     if (stmt.children.length === 2) {
       // regular attribute
       attrPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
@@ -2261,10 +2247,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         model
           .select('/nodes[' + attrPath[0] + ']/components[' + attrPath[1] + ']').array
           .forEach(function (comp) {
-            updateDictionary(comp, attrPath[2]);
-            if (comp.dictionary) {
-              attributes = attributes.concat(comp.dictionary.values.array);
+            var dic = comp.dictionary;
+            if (!dic) {
+              comp.dictionary = factory.createDictionary().withGenerated_KMF_ID(0);
             }
+            updateDictionary(comp.dictionary, comp, attrPath[2], value, false);
           });
       } else if (attrPath.length === 2) {
         model
@@ -2272,21 +2259,14 @@ module.exports = function (model, statements, stmt, opts, cb) {
           .concat(model.select('/groups[' + attrPath[0] + ']').array)
           .concat(model.select('/hubs[' + attrPath[0] + ']').array)
           .forEach(function (instance) {
-            updateDictionary(instance, attrPath[1]);
-            if (instance.dictionary) {
-              attributes = attributes.concat(instance.dictionary.values.array);
+            var dic = instance.dictionary;
+            if (!dic) {
+              instance.dictionary = factory.createDictionary().withGenerated_KMF_ID(0);
             }
+            updateDictionary(instance.dictionary, instance, attrPath[1], value, false);
           });
       } else {
-        throw new Error('"' + attrPath.join('.') + '" is not a valid attribute path');
-      }
-
-      if (attributes.length === 0) {
-        throw new Error('Unable to find attribute "' + attrPath.join('.') + '". Set failed');
-      } else {
-        attributes.forEach(function (attr) {
-          attr.value = value;
-        });
+        throw new KevScriptError('"' + attrPath.join('.') + '" is not a valid attribute path');
       }
 
     } else if (stmt.children.length === 3) {
@@ -2296,7 +2276,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
       value = statements[stmt.children[2].type](model, statements, stmt.children[2], opts, cb);
 
       if (attrPath.length === 3) {
-        throw new Error('Setting fragmented attribute only makes sense for groups & channels. "' + attrPath.join('.') + '/' + nodePath.join('.') + '" can only refer to a component attribute. Set failed');
+        throw new KevScriptError('Setting fragmented attribute only makes sense for groups & channels. "' + attrPath.join('.') + '/' + nodePath.join('.') + '" can only refer to a component attribute. Set failed');
       } else if (attrPath.length === 2) {
         if (nodePath.length === 1) {
           model
@@ -2306,33 +2286,23 @@ module.exports = function (model, statements, stmt, opts, cb) {
               if (nodePath[0] === '*') {
                 // all fragments
                 instance.fragmentDictionary.array.forEach(function (fDic) {
-                  updateFragmentDictionary(fDic, instance, attrPath[1]);
-                  attributes = attributes.concat(fDic.values.array);
+                  updateDictionary(fDic, instance, attrPath[1], value, true);
                 });
               } else {
                 // specific fragment
                 var fDic = instance.findFragmentDictionaryByID(nodePath[0]);
                 if (fDic) {
-                  updateFragmentDictionary(fDic, instance, attrPath[1]);
-                  attributes = attributes.concat(fDic.values.array);
+                  updateDictionary(fDic, instance, attrPath[1], value, true);
                 } else {
-                  throw new Error('Unable to find fragment "'+nodePath[0]+'" for instance "'+attrPath[0]+'". Set failed');
+                  throw new KevScriptError('Unable to find fragment "' + nodePath[0] + '" for instance "' + attrPath[0] + '". Set failed');
                 }
               }
             });
         } else {
-          throw new Error('Invalid fragment path "'+nodePath.join('.')+'". Fragment path must be a node name. Set failed');
+          throw new KevScriptError('Invalid fragment path "' + nodePath.join('.') + '". Fragment path must be a node name. Set failed');
         }
       } else {
-        throw new Error('"' + attrPath.join('.') + '" is not a valid attribute path');
-      }
-
-      if (attributes.length === 0) {
-        throw new Error('Unable to find fragmented attribute "' + attrPath.join('.') + '/'+nodePath[0]+'". Set failed');
-      } else {
-        attributes.forEach(function (attr) {
-          attr.value = value;
-        });
+        throw new KevScriptError('"' + attrPath.join('.') + '" is not a valid attribute path');
       }
     }
   } catch (err) {
@@ -2342,10 +2312,12 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"kevoree-library":"kevoree-library"}],41:[function(require,module,exports){
+},{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],41:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
 },{"dup":22}],42:[function(require,module,exports){
 'use strict';
+
+var KevScriptError = require('../KevScriptError');
 
 module.exports = function (model, statements, stmt, opts, cb) {
   var error;
@@ -2363,11 +2335,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         instances = model.select('/nodes['+instancePath[0]+']/components['+instancePath[1]+']').array;
 
       } else {
-        throw new Error('"'+instancePath.join('.')+'" is not a valid path for an instance. Start failed');
+        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid path for an instance. Start failed');
       }
 
       if (instancePath.indexOf('*') === -1 && instances.length === 0) {
-        throw new Error('Unable to start "'+instancePath.join('.')+'". Instance does not exist');
+        throw new KevScriptError('Unable to start "'+instancePath.join('.')+'". Instance does not exist');
       } else {
         instances.forEach(function (instance) {
           instance.started = true;
@@ -2381,8 +2353,10 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{}],43:[function(require,module,exports){
+},{"../KevScriptError":2}],43:[function(require,module,exports){
 'use strict';
+
+var KevScriptError = require('../KevScriptError');
 
 module.exports = function (model, statements, stmt, opts, cb) {
   var error;
@@ -2400,11 +2374,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         instances = model.select('/nodes['+instancePath[0]+']/components['+instancePath[1]+']').array;
 
       } else {
-        throw new Error('"'+instancePath.join('.')+'" is not a valid path for an instance. Stop failed');
+        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid path for an instance. Stop failed');
       }
 
       if (instancePath.indexOf('*') === -1 && instances.length === 0) {
-        throw new Error('Unable to stop "'+instancePath.join('.')+'". Instance does not exist');
+        throw new KevScriptError('Unable to stop "'+instancePath.join('.')+'". Instance does not exist');
       } else {
         instances.forEach(function (instance) {
           instance.started = false;
@@ -2418,7 +2392,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{}],44:[function(require,module,exports){
+},{"../KevScriptError":2}],44:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
 },{"dup":22}],45:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
@@ -2429,6 +2403,7 @@ arguments[4][22][0].apply(exports,arguments)
 
 var kevoree = require('kevoree-library');
 var tdefResolver = require('../typedef-resolver');
+var KevScriptError = require('../KevScriptError');
 
 var factory = new kevoree.factory.DefaultKevoreeFactory();
 var compare = factory.createModelCompare();
@@ -2524,7 +2499,7 @@ module.exports.setCacheManager = function (cacheMgr) {
   cache = cacheMgr;
 };
 
-},{"../typedef-resolver":51,"kevoree-library":"kevoree-library"}],48:[function(require,module,exports){
+},{"../KevScriptError":2,"../typedef-resolver":51,"kevoree-library":"kevoree-library"}],48:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
@@ -8296,6 +8271,8 @@ if (Buffer.TYPED_ARRAY_SUPPORT) {
 function assertSize (size) {
   if (typeof size !== 'number') {
     throw new TypeError('"size" argument must be a number')
+  } else if (size < 0) {
+    throw new RangeError('"size" argument must not be negative')
   }
 }
 
@@ -8372,7 +8349,7 @@ function fromString (that, string, encoding) {
 }
 
 function fromArrayLike (that, array) {
-  var length = checked(array.length) | 0
+  var length = array.length < 0 ? 0 : checked(array.length) | 0
   that = createBuffer(that, length)
   for (var i = 0; i < length; i += 1) {
     that[i] = array[i] & 255
@@ -8441,7 +8418,7 @@ function fromObject (that, obj) {
 }
 
 function checked (length) {
-  // Note: cannot use `length < kMaxLength` here because that fails when
+  // Note: cannot use `length < kMaxLength()` here because that fails when
   // length is NaN (which is otherwise coerced to zero.)
   if (length >= kMaxLength()) {
     throw new RangeError('Attempt to allocate Buffer larger than maximum ' +
@@ -10414,7 +10391,7 @@ https.request = function (params, cb) {
     return http.request.call(this, params, cb);
 }
 
-},{"http":91}],61:[function(require,module,exports){
+},{"http":92}],61:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -10723,7 +10700,7 @@ function auth(params) {
 module.exports = auth;
 
 }).call(this,require("buffer").Buffer)
-},{"./refresh":71,"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf"}],67:[function(require,module,exports){
+},{"./refresh":71,"buffer":56,"http":92,"https":60,"q":80,"tiny-conf":"tiny-conf"}],67:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -11110,7 +11087,7 @@ function du(params) {
 module.exports = du;
 
 }).call(this,require("buffer").Buffer)
-},{"./util/response-helper":74,"./util/validate":75,"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],68:[function(require,module,exports){
+},{"./util/response-helper":74,"./util/validate":75,"buffer":56,"http":92,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":98}],68:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -11197,7 +11174,7 @@ function dus(namespace, tdefName, tdefVersion, name, version) {
 
 module.exports = dus;
 
-},{"./util/response-helper":74,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],69:[function(require,module,exports){
+},{"./util/response-helper":74,"http":92,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":98}],69:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -11334,7 +11311,7 @@ function namespace(params) {
 module.exports = namespace;
 
 }).call(this,require("buffer").Buffer)
-},{"./util/response-helper":74,"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],70:[function(require,module,exports){
+},{"./util/response-helper":74,"buffer":56,"http":92,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":98}],70:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -11386,7 +11363,7 @@ function namespaces() {
 
 module.exports = namespaces;
 
-},{"./util/response-helper":74,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf"}],71:[function(require,module,exports){
+},{"./util/response-helper":74,"http":92,"https":60,"q":80,"tiny-conf":"tiny-conf"}],71:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -11471,7 +11448,7 @@ function refresh() {
 module.exports = refresh;
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf"}],72:[function(require,module,exports){
+},{"buffer":56,"http":92,"https":60,"q":80,"tiny-conf":"tiny-conf"}],72:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -11697,7 +11674,7 @@ function tdef(params) {
 module.exports = tdef;
 
 }).call(this,require("buffer").Buffer)
-},{"./util/response-helper":74,"./util/validate":75,"buffer":56,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],73:[function(require,module,exports){
+},{"./util/response-helper":74,"./util/validate":75,"buffer":56,"http":92,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":98}],73:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -11756,7 +11733,7 @@ function tdefs(namespace) {
 
 module.exports = tdefs;
 
-},{"./util/response-helper":74,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":97}],74:[function(require,module,exports){
+},{"./util/response-helper":74,"http":92,"https":60,"q":80,"tiny-conf":"tiny-conf","url-template":98}],74:[function(require,module,exports){
 'use strict';
 
 module.exports = function (code, respData, res, resolve, reject, skipJsonParsing) {
@@ -11866,7 +11843,7 @@ function whoami() {
 
 module.exports = whoami;
 
-},{"./util/response-helper":74,"http":91,"https":60,"q":80,"tiny-conf":"tiny-conf"}],77:[function(require,module,exports){
+},{"./util/response-helper":74,"http":92,"https":60,"q":80,"tiny-conf":"tiny-conf"}],77:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -15001,21 +14978,21 @@ if (debugUtil && debugUtil.debuglog) {
 }
 /*</replacement>*/
 
+var BufferList = require('./internal/streams/BufferList');
 var StringDecoder;
 
 util.inherits(Readable, Stream);
 
-var hasPrependListener = typeof EE.prototype.prependListener === 'function';
-
 function prependListener(emitter, event, fn) {
-  if (hasPrependListener) return emitter.prependListener(event, fn);
-
-  // This is a brutally ugly hack to make sure that our error handler
-  // is attached before any userland ones.  NEVER DO THIS. This is here
-  // only because this code needs to continue to work with older versions
-  // of Node.js that do not include the prependListener() method. The goal
-  // is to eventually remove this hack.
-  if (!emitter._events || !emitter._events[event]) emitter.on(event, fn);else if (isArray(emitter._events[event])) emitter._events[event].unshift(fn);else emitter._events[event] = [fn, emitter._events[event]];
+  if (typeof emitter.prependListener === 'function') {
+    return emitter.prependListener(event, fn);
+  } else {
+    // This is a hack to make sure that our error handler is attached before any
+    // userland ones.  NEVER DO THIS. This is here only because this code needs
+    // to continue to work with older versions of Node.js that do not include
+    // the prependListener() method. The goal is to eventually remove this hack.
+    if (!emitter._events || !emitter._events[event]) emitter.on(event, fn);else if (isArray(emitter._events[event])) emitter._events[event].unshift(fn);else emitter._events[event] = [fn, emitter._events[event]];
+  }
 }
 
 var Duplex;
@@ -15039,7 +15016,10 @@ function ReadableState(options, stream) {
   // cast to ints.
   this.highWaterMark = ~ ~this.highWaterMark;
 
-  this.buffer = [];
+  // A linked list is used to store data chunks instead of an array because the
+  // linked list can remove elements from the beginning faster than
+  // array.shift()
+  this.buffer = new BufferList();
   this.length = 0;
   this.pipes = null;
   this.pipesCount = 0;
@@ -15202,7 +15182,8 @@ function computeNewHighWaterMark(n) {
   if (n >= MAX_HWM) {
     n = MAX_HWM;
   } else {
-    // Get the next highest power of 2
+    // Get the next highest power of 2 to prevent increasing hwm excessively in
+    // tiny amounts
     n--;
     n |= n >>> 1;
     n |= n >>> 2;
@@ -15214,44 +15195,34 @@ function computeNewHighWaterMark(n) {
   return n;
 }
 
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
 function howMuchToRead(n, state) {
-  if (state.length === 0 && state.ended) return 0;
-
-  if (state.objectMode) return n === 0 ? 0 : 1;
-
-  if (n === null || isNaN(n)) {
-    // only flow one buffer at a time
-    if (state.flowing && state.buffer.length) return state.buffer[0].length;else return state.length;
+  if (n <= 0 || state.length === 0 && state.ended) return 0;
+  if (state.objectMode) return 1;
+  if (n !== n) {
+    // Only flow one buffer at a time
+    if (state.flowing && state.length) return state.buffer.head.data.length;else return state.length;
   }
-
-  if (n <= 0) return 0;
-
-  // If we're asking for more than the target buffer level,
-  // then raise the water mark.  Bump up to the next highest
-  // power of 2, to prevent increasing it excessively in tiny
-  // amounts.
+  // If we're asking for more than the current hwm, then raise the hwm.
   if (n > state.highWaterMark) state.highWaterMark = computeNewHighWaterMark(n);
-
-  // don't have that much.  return null, unless we've ended.
-  if (n > state.length) {
-    if (!state.ended) {
-      state.needReadable = true;
-      return 0;
-    } else {
-      return state.length;
-    }
+  if (n <= state.length) return n;
+  // Don't have enough
+  if (!state.ended) {
+    state.needReadable = true;
+    return 0;
   }
-
-  return n;
+  return state.length;
 }
 
 // you can override either this method, or the async _read(n) below.
 Readable.prototype.read = function (n) {
   debug('read', n);
+  n = parseInt(n, 10);
   var state = this._readableState;
   var nOrig = n;
 
-  if (typeof n !== 'number' || n > 0) state.emittedReadable = false;
+  if (n !== 0) state.emittedReadable = false;
 
   // if we're doing read(0) to trigger a readable event, but we
   // already have a bunch of data in the buffer, then just trigger
@@ -15307,9 +15278,7 @@ Readable.prototype.read = function (n) {
   if (state.ended || state.reading) {
     doRead = false;
     debug('reading or ended', doRead);
-  }
-
-  if (doRead) {
+  } else if (doRead) {
     debug('do read');
     state.reading = true;
     state.sync = true;
@@ -15318,11 +15287,10 @@ Readable.prototype.read = function (n) {
     // call internal read method
     this._read(state.highWaterMark);
     state.sync = false;
+    // If _read pushed data synchronously, then `reading` will be false,
+    // and we need to re-evaluate how much data we can return to the user.
+    if (!state.reading) n = howMuchToRead(nOrig, state);
   }
-
-  // If _read pushed data synchronously, then `reading` will be false,
-  // and we need to re-evaluate how much data we can return to the user.
-  if (doRead && !state.reading) n = howMuchToRead(nOrig, state);
 
   var ret;
   if (n > 0) ret = fromList(n, state);else ret = null;
@@ -15330,16 +15298,18 @@ Readable.prototype.read = function (n) {
   if (ret === null) {
     state.needReadable = true;
     n = 0;
+  } else {
+    state.length -= n;
   }
 
-  state.length -= n;
+  if (state.length === 0) {
+    // If we have nothing in the buffer, then we want to know
+    // as soon as we *do* get something into the buffer.
+    if (!state.ended) state.needReadable = true;
 
-  // If we have nothing in the buffer, then we want to know
-  // as soon as we *do* get something into the buffer.
-  if (state.length === 0 && !state.ended) state.needReadable = true;
-
-  // If we tried to read() past the EOF, then emit end on the next tick.
-  if (nOrig !== n && state.ended && state.length === 0) endReadable(this);
+    // If we tried to read() past the EOF, then emit end on the next tick.
+    if (nOrig !== n && state.ended) endReadable(this);
+  }
 
   if (ret !== null) this.emit('data', ret);
 
@@ -15487,11 +15457,17 @@ Readable.prototype.pipe = function (dest, pipeOpts) {
     if (state.awaitDrain && (!dest._writableState || dest._writableState.needDrain)) ondrain();
   }
 
+  // If the user pushes more data while we're writing to dest then we'll end up
+  // in ondata again. However, we only want to increase awaitDrain once because
+  // dest will only emit one 'drain' event for the multiple writes.
+  // => Introduce a guard on increasing awaitDrain.
+  var increasedAwaitDrain = false;
   src.on('data', ondata);
   function ondata(chunk) {
     debug('ondata');
+    increasedAwaitDrain = false;
     var ret = dest.write(chunk);
-    if (false === ret) {
+    if (false === ret && !increasedAwaitDrain) {
       // If the user unpiped during `dest.write()`, it is possible
       // to get stuck in a permanently paused state if that write
       // also returned false.
@@ -15499,6 +15475,7 @@ Readable.prototype.pipe = function (dest, pipeOpts) {
       if ((state.pipesCount === 1 && state.pipes === dest || state.pipesCount > 1 && indexOf(state.pipes, dest) !== -1) && !cleanedUp) {
         debug('false write response, pause', src._readableState.awaitDrain);
         src._readableState.awaitDrain++;
+        increasedAwaitDrain = true;
       }
       src.pause();
     }
@@ -15612,18 +15589,14 @@ Readable.prototype.unpipe = function (dest) {
 Readable.prototype.on = function (ev, fn) {
   var res = Stream.prototype.on.call(this, ev, fn);
 
-  // If listening to data, and it has not explicitly been paused,
-  // then call resume to start the flow of data on the next tick.
-  if (ev === 'data' && false !== this._readableState.flowing) {
-    this.resume();
-  }
-
-  if (ev === 'readable' && !this._readableState.endEmitted) {
+  if (ev === 'data') {
+    // Start flowing on next tick if stream isn't explicitly paused
+    if (this._readableState.flowing !== false) this.resume();
+  } else if (ev === 'readable') {
     var state = this._readableState;
-    if (!state.readableListening) {
-      state.readableListening = true;
+    if (!state.endEmitted && !state.readableListening) {
+      state.readableListening = state.needReadable = true;
       state.emittedReadable = false;
-      state.needReadable = true;
       if (!state.reading) {
         processNextTick(nReadingNextTick, this);
       } else if (state.length) {
@@ -15667,6 +15640,7 @@ function resume_(stream, state) {
   }
 
   state.resumeScheduled = false;
+  state.awaitDrain = 0;
   stream.emit('resume');
   flow(stream);
   if (state.flowing && !state.reading) stream.read(0);
@@ -15685,11 +15659,7 @@ Readable.prototype.pause = function () {
 function flow(stream) {
   var state = stream._readableState;
   debug('flow', state.flowing);
-  if (state.flowing) {
-    do {
-      var chunk = stream.read();
-    } while (null !== chunk && state.flowing);
-  }
+  while (state.flowing && stream.read() !== null) {}
 }
 
 // wrap an old-style stream as the async data source.
@@ -15760,50 +15730,101 @@ Readable._fromList = fromList;
 
 // Pluck off n bytes from an array of buffers.
 // Length is the combined lengths of all the buffers in the list.
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
 function fromList(n, state) {
-  var list = state.buffer;
-  var length = state.length;
-  var stringMode = !!state.decoder;
-  var objectMode = !!state.objectMode;
+  // nothing buffered
+  if (state.length === 0) return null;
+
   var ret;
-
-  // nothing in the list, definitely empty.
-  if (list.length === 0) return null;
-
-  if (length === 0) ret = null;else if (objectMode) ret = list.shift();else if (!n || n >= length) {
-    // read it all, truncate the array.
-    if (stringMode) ret = list.join('');else if (list.length === 1) ret = list[0];else ret = Buffer.concat(list, length);
-    list.length = 0;
+  if (state.objectMode) ret = state.buffer.shift();else if (!n || n >= state.length) {
+    // read it all, truncate the list
+    if (state.decoder) ret = state.buffer.join('');else if (state.buffer.length === 1) ret = state.buffer.head.data;else ret = state.buffer.concat(state.length);
+    state.buffer.clear();
   } else {
-    // read just some of it.
-    if (n < list[0].length) {
-      // just take a part of the first list item.
-      // slice is the same for buffers and strings.
-      var buf = list[0];
-      ret = buf.slice(0, n);
-      list[0] = buf.slice(n);
-    } else if (n === list[0].length) {
-      // first list is a perfect match
-      ret = list.shift();
-    } else {
-      // complex case.
-      // we have enough to cover it, but it spans past the first buffer.
-      if (stringMode) ret = '';else ret = bufferShim.allocUnsafe(n);
-
-      var c = 0;
-      for (var i = 0, l = list.length; i < l && c < n; i++) {
-        var _buf = list[0];
-        var cpy = Math.min(n - c, _buf.length);
-
-        if (stringMode) ret += _buf.slice(0, cpy);else _buf.copy(ret, c, 0, cpy);
-
-        if (cpy < _buf.length) list[0] = _buf.slice(cpy);else list.shift();
-
-        c += cpy;
-      }
-    }
+    // read part of list
+    ret = fromListPartial(n, state.buffer, state.decoder);
   }
 
+  return ret;
+}
+
+// Extracts only enough buffered data to satisfy the amount requested.
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
+function fromListPartial(n, list, hasStrings) {
+  var ret;
+  if (n < list.head.data.length) {
+    // slice is the same for buffers and strings
+    ret = list.head.data.slice(0, n);
+    list.head.data = list.head.data.slice(n);
+  } else if (n === list.head.data.length) {
+    // first chunk is a perfect match
+    ret = list.shift();
+  } else {
+    // result spans more than one buffer
+    ret = hasStrings ? copyFromBufferString(n, list) : copyFromBuffer(n, list);
+  }
+  return ret;
+}
+
+// Copies a specified amount of characters from the list of buffered data
+// chunks.
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
+function copyFromBufferString(n, list) {
+  var p = list.head;
+  var c = 1;
+  var ret = p.data;
+  n -= ret.length;
+  while (p = p.next) {
+    var str = p.data;
+    var nb = n > str.length ? str.length : n;
+    if (nb === str.length) ret += str;else ret += str.slice(0, n);
+    n -= nb;
+    if (n === 0) {
+      if (nb === str.length) {
+        ++c;
+        if (p.next) list.head = p.next;else list.head = list.tail = null;
+      } else {
+        list.head = p;
+        p.data = str.slice(nb);
+      }
+      break;
+    }
+    ++c;
+  }
+  list.length -= c;
+  return ret;
+}
+
+// Copies a specified amount of bytes from the list of buffered data chunks.
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
+function copyFromBuffer(n, list) {
+  var ret = bufferShim.allocUnsafe(n);
+  var p = list.head;
+  var c = 1;
+  p.data.copy(ret);
+  n -= p.data.length;
+  while (p = p.next) {
+    var buf = p.data;
+    var nb = n > buf.length ? buf.length : n;
+    buf.copy(ret, ret.length - n, 0, nb);
+    n -= nb;
+    if (n === 0) {
+      if (nb === buf.length) {
+        ++c;
+        if (p.next) list.head = p.next;else list.head = list.tail = null;
+      } else {
+        list.head = p;
+        p.data = buf.slice(nb);
+      }
+      break;
+    }
+    ++c;
+  }
+  list.length -= c;
   return ret;
 }
 
@@ -15842,7 +15863,7 @@ function indexOf(xs, x) {
   return -1;
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":84,"_process":78,"buffer":56,"buffer-shims":55,"core-util-is":58,"events":59,"inherits":62,"isarray":64,"process-nextick-args":77,"string_decoder/":95,"util":54}],87:[function(require,module,exports){
+},{"./_stream_duplex":84,"./internal/streams/BufferList":89,"_process":78,"buffer":56,"buffer-shims":55,"core-util-is":58,"events":59,"inherits":62,"isarray":64,"process-nextick-args":77,"string_decoder/":96,"util":54}],87:[function(require,module,exports){
 // a transform stream is a readable/writable stream where you do
 // something with the data.  Sometimes it's called a "filter",
 // but that's not a great name for it, since that implies a thing where
@@ -16552,7 +16573,72 @@ function CorkedRequest(state) {
   };
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":84,"_process":78,"buffer":56,"buffer-shims":55,"core-util-is":58,"events":59,"inherits":62,"process-nextick-args":77,"util-deprecate":100}],89:[function(require,module,exports){
+},{"./_stream_duplex":84,"_process":78,"buffer":56,"buffer-shims":55,"core-util-is":58,"events":59,"inherits":62,"process-nextick-args":77,"util-deprecate":101}],89:[function(require,module,exports){
+'use strict';
+
+var Buffer = require('buffer').Buffer;
+/*<replacement>*/
+var bufferShim = require('buffer-shims');
+/*</replacement>*/
+
+module.exports = BufferList;
+
+function BufferList() {
+  this.head = null;
+  this.tail = null;
+  this.length = 0;
+}
+
+BufferList.prototype.push = function (v) {
+  var entry = { data: v, next: null };
+  if (this.length > 0) this.tail.next = entry;else this.head = entry;
+  this.tail = entry;
+  ++this.length;
+};
+
+BufferList.prototype.unshift = function (v) {
+  var entry = { data: v, next: this.head };
+  if (this.length === 0) this.tail = entry;
+  this.head = entry;
+  ++this.length;
+};
+
+BufferList.prototype.shift = function () {
+  if (this.length === 0) return;
+  var ret = this.head.data;
+  if (this.length === 1) this.head = this.tail = null;else this.head = this.head.next;
+  --this.length;
+  return ret;
+};
+
+BufferList.prototype.clear = function () {
+  this.head = this.tail = null;
+  this.length = 0;
+};
+
+BufferList.prototype.join = function (s) {
+  if (this.length === 0) return '';
+  var p = this.head;
+  var ret = '' + p.data;
+  while (p = p.next) {
+    ret += s + p.data;
+  }return ret;
+};
+
+BufferList.prototype.concat = function (n) {
+  if (this.length === 0) return bufferShim.alloc(0);
+  if (this.length === 1) return this.head.data;
+  var ret = bufferShim.allocUnsafe(n >>> 0);
+  var p = this.head;
+  var i = 0;
+  while (p) {
+    p.data.copy(ret, i);
+    i += p.data.length;
+    p = p.next;
+  }
+  return ret;
+};
+},{"buffer":56,"buffer-shims":55}],90:[function(require,module,exports){
 (function (process){
 var Stream = (function (){
   try {
@@ -16572,7 +16658,7 @@ if (!process.browser && process.env.READABLE_STREAM === 'disable' && Stream) {
 }
 
 }).call(this,require('_process'))
-},{"./lib/_stream_duplex.js":84,"./lib/_stream_passthrough.js":85,"./lib/_stream_readable.js":86,"./lib/_stream_transform.js":87,"./lib/_stream_writable.js":88,"_process":78}],90:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":84,"./lib/_stream_passthrough.js":85,"./lib/_stream_readable.js":86,"./lib/_stream_transform.js":87,"./lib/_stream_writable.js":88,"_process":78}],91:[function(require,module,exports){
 (function (process){
 exports = module.exports = SemVer;
 
@@ -17779,7 +17865,7 @@ function prerelease(version, loose) {
 }
 
 }).call(this,require('_process'))
-},{"_process":78}],91:[function(require,module,exports){
+},{"_process":78}],92:[function(require,module,exports){
 (function (global){
 var ClientRequest = require('./lib/request')
 var extend = require('xtend')
@@ -17861,7 +17947,7 @@ http.METHODS = [
 	'UNSUBSCRIBE'
 ]
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./lib/request":93,"builtin-status-codes":57,"url":98,"xtend":102}],92:[function(require,module,exports){
+},{"./lib/request":94,"builtin-status-codes":57,"url":99,"xtend":105}],93:[function(require,module,exports){
 (function (global){
 exports.fetch = isFunction(global.fetch) && isFunction(global.ReadableStream)
 
@@ -17905,7 +17991,7 @@ function isFunction (value) {
 xhr = null // Help gc
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],93:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -18186,7 +18272,7 @@ var unsafeHeaders = [
 ]
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":92,"./response":94,"_process":78,"buffer":56,"inherits":62,"readable-stream":89,"to-arraybuffer":96}],94:[function(require,module,exports){
+},{"./capability":93,"./response":95,"_process":78,"buffer":56,"inherits":62,"readable-stream":90,"to-arraybuffer":97}],95:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -18370,7 +18456,7 @@ IncomingMessage.prototype._onXHRProgress = function () {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":92,"_process":78,"buffer":56,"inherits":62,"readable-stream":89}],95:[function(require,module,exports){
+},{"./capability":93,"_process":78,"buffer":56,"inherits":62,"readable-stream":90}],96:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -18593,7 +18679,7 @@ function base64DetectIncompleteChar(buffer) {
   this.charLength = this.charReceived ? 3 : 0;
 }
 
-},{"buffer":56}],96:[function(require,module,exports){
+},{"buffer":56}],97:[function(require,module,exports){
 var Buffer = require('buffer').Buffer
 
 module.exports = function (buf) {
@@ -18622,7 +18708,7 @@ module.exports = function (buf) {
 	}
 }
 
-},{"buffer":56}],97:[function(require,module,exports){
+},{"buffer":56}],98:[function(require,module,exports){
 (function (root, factory) {
     if (typeof exports === 'object') {
         module.exports = factory();
@@ -18816,7 +18902,7 @@ module.exports = function (buf) {
   return new UrlTemplate();
 }));
 
-},{}],98:[function(require,module,exports){
+},{}],99:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -19550,7 +19636,7 @@ Url.prototype.parseHost = function() {
   if (host) this.hostname = host;
 };
 
-},{"./util":99,"punycode":79,"querystring":83}],99:[function(require,module,exports){
+},{"./util":100,"punycode":79,"querystring":83}],100:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -19568,7 +19654,7 @@ module.exports = {
   }
 };
 
-},{}],100:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 (function (global){
 
 /**
@@ -19639,7 +19725,604 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],101:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
+module.exports = function isBuffer(arg) {
+  return arg && typeof arg === 'object'
+    && typeof arg.copy === 'function'
+    && typeof arg.fill === 'function'
+    && typeof arg.readUInt8 === 'function';
+}
+},{}],103:[function(require,module,exports){
+(function (process,global){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+var formatRegExp = /%[sdj%]/g;
+exports.format = function(f) {
+  if (!isString(f)) {
+    var objects = [];
+    for (var i = 0; i < arguments.length; i++) {
+      objects.push(inspect(arguments[i]));
+    }
+    return objects.join(' ');
+  }
+
+  var i = 1;
+  var args = arguments;
+  var len = args.length;
+  var str = String(f).replace(formatRegExp, function(x) {
+    if (x === '%%') return '%';
+    if (i >= len) return x;
+    switch (x) {
+      case '%s': return String(args[i++]);
+      case '%d': return Number(args[i++]);
+      case '%j':
+        try {
+          return JSON.stringify(args[i++]);
+        } catch (_) {
+          return '[Circular]';
+        }
+      default:
+        return x;
+    }
+  });
+  for (var x = args[i]; i < len; x = args[++i]) {
+    if (isNull(x) || !isObject(x)) {
+      str += ' ' + x;
+    } else {
+      str += ' ' + inspect(x);
+    }
+  }
+  return str;
+};
+
+
+// Mark that a method should not be used.
+// Returns a modified function which warns once by default.
+// If --no-deprecation is set, then it is a no-op.
+exports.deprecate = function(fn, msg) {
+  // Allow for deprecating things in the process of starting up.
+  if (isUndefined(global.process)) {
+    return function() {
+      return exports.deprecate(fn, msg).apply(this, arguments);
+    };
+  }
+
+  if (process.noDeprecation === true) {
+    return fn;
+  }
+
+  var warned = false;
+  function deprecated() {
+    if (!warned) {
+      if (process.throwDeprecation) {
+        throw new Error(msg);
+      } else if (process.traceDeprecation) {
+        console.trace(msg);
+      } else {
+        console.error(msg);
+      }
+      warned = true;
+    }
+    return fn.apply(this, arguments);
+  }
+
+  return deprecated;
+};
+
+
+var debugs = {};
+var debugEnviron;
+exports.debuglog = function(set) {
+  if (isUndefined(debugEnviron))
+    debugEnviron = process.env.NODE_DEBUG || '';
+  set = set.toUpperCase();
+  if (!debugs[set]) {
+    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
+      var pid = process.pid;
+      debugs[set] = function() {
+        var msg = exports.format.apply(exports, arguments);
+        console.error('%s %d: %s', set, pid, msg);
+      };
+    } else {
+      debugs[set] = function() {};
+    }
+  }
+  return debugs[set];
+};
+
+
+/**
+ * Echos the value of a value. Trys to print the value out
+ * in the best way possible given the different types.
+ *
+ * @param {Object} obj The object to print out.
+ * @param {Object} opts Optional options object that alters the output.
+ */
+/* legacy: obj, showHidden, depth, colors*/
+function inspect(obj, opts) {
+  // default options
+  var ctx = {
+    seen: [],
+    stylize: stylizeNoColor
+  };
+  // legacy...
+  if (arguments.length >= 3) ctx.depth = arguments[2];
+  if (arguments.length >= 4) ctx.colors = arguments[3];
+  if (isBoolean(opts)) {
+    // legacy...
+    ctx.showHidden = opts;
+  } else if (opts) {
+    // got an "options" object
+    exports._extend(ctx, opts);
+  }
+  // set default options
+  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
+  if (isUndefined(ctx.depth)) ctx.depth = 2;
+  if (isUndefined(ctx.colors)) ctx.colors = false;
+  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
+  if (ctx.colors) ctx.stylize = stylizeWithColor;
+  return formatValue(ctx, obj, ctx.depth);
+}
+exports.inspect = inspect;
+
+
+// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
+inspect.colors = {
+  'bold' : [1, 22],
+  'italic' : [3, 23],
+  'underline' : [4, 24],
+  'inverse' : [7, 27],
+  'white' : [37, 39],
+  'grey' : [90, 39],
+  'black' : [30, 39],
+  'blue' : [34, 39],
+  'cyan' : [36, 39],
+  'green' : [32, 39],
+  'magenta' : [35, 39],
+  'red' : [31, 39],
+  'yellow' : [33, 39]
+};
+
+// Don't use 'blue' not visible on cmd.exe
+inspect.styles = {
+  'special': 'cyan',
+  'number': 'yellow',
+  'boolean': 'yellow',
+  'undefined': 'grey',
+  'null': 'bold',
+  'string': 'green',
+  'date': 'magenta',
+  // "name": intentionally not styling
+  'regexp': 'red'
+};
+
+
+function stylizeWithColor(str, styleType) {
+  var style = inspect.styles[styleType];
+
+  if (style) {
+    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
+           '\u001b[' + inspect.colors[style][1] + 'm';
+  } else {
+    return str;
+  }
+}
+
+
+function stylizeNoColor(str, styleType) {
+  return str;
+}
+
+
+function arrayToHash(array) {
+  var hash = {};
+
+  array.forEach(function(val, idx) {
+    hash[val] = true;
+  });
+
+  return hash;
+}
+
+
+function formatValue(ctx, value, recurseTimes) {
+  // Provide a hook for user-specified inspect functions.
+  // Check that value is an object with an inspect function on it
+  if (ctx.customInspect &&
+      value &&
+      isFunction(value.inspect) &&
+      // Filter out the util module, it's inspect function is special
+      value.inspect !== exports.inspect &&
+      // Also filter out any prototype objects using the circular check.
+      !(value.constructor && value.constructor.prototype === value)) {
+    var ret = value.inspect(recurseTimes, ctx);
+    if (!isString(ret)) {
+      ret = formatValue(ctx, ret, recurseTimes);
+    }
+    return ret;
+  }
+
+  // Primitive types cannot have properties
+  var primitive = formatPrimitive(ctx, value);
+  if (primitive) {
+    return primitive;
+  }
+
+  // Look up the keys of the object.
+  var keys = Object.keys(value);
+  var visibleKeys = arrayToHash(keys);
+
+  if (ctx.showHidden) {
+    keys = Object.getOwnPropertyNames(value);
+  }
+
+  // IE doesn't make error fields non-enumerable
+  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
+  if (isError(value)
+      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
+    return formatError(value);
+  }
+
+  // Some type of object without properties can be shortcutted.
+  if (keys.length === 0) {
+    if (isFunction(value)) {
+      var name = value.name ? ': ' + value.name : '';
+      return ctx.stylize('[Function' + name + ']', 'special');
+    }
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    }
+    if (isDate(value)) {
+      return ctx.stylize(Date.prototype.toString.call(value), 'date');
+    }
+    if (isError(value)) {
+      return formatError(value);
+    }
+  }
+
+  var base = '', array = false, braces = ['{', '}'];
+
+  // Make Array say that they are Array
+  if (isArray(value)) {
+    array = true;
+    braces = ['[', ']'];
+  }
+
+  // Make functions say that they are functions
+  if (isFunction(value)) {
+    var n = value.name ? ': ' + value.name : '';
+    base = ' [Function' + n + ']';
+  }
+
+  // Make RegExps say that they are RegExps
+  if (isRegExp(value)) {
+    base = ' ' + RegExp.prototype.toString.call(value);
+  }
+
+  // Make dates with properties first say the date
+  if (isDate(value)) {
+    base = ' ' + Date.prototype.toUTCString.call(value);
+  }
+
+  // Make error with message first say the error
+  if (isError(value)) {
+    base = ' ' + formatError(value);
+  }
+
+  if (keys.length === 0 && (!array || value.length == 0)) {
+    return braces[0] + base + braces[1];
+  }
+
+  if (recurseTimes < 0) {
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    } else {
+      return ctx.stylize('[Object]', 'special');
+    }
+  }
+
+  ctx.seen.push(value);
+
+  var output;
+  if (array) {
+    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
+  } else {
+    output = keys.map(function(key) {
+      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
+    });
+  }
+
+  ctx.seen.pop();
+
+  return reduceToSingleString(output, base, braces);
+}
+
+
+function formatPrimitive(ctx, value) {
+  if (isUndefined(value))
+    return ctx.stylize('undefined', 'undefined');
+  if (isString(value)) {
+    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
+                                             .replace(/'/g, "\\'")
+                                             .replace(/\\"/g, '"') + '\'';
+    return ctx.stylize(simple, 'string');
+  }
+  if (isNumber(value))
+    return ctx.stylize('' + value, 'number');
+  if (isBoolean(value))
+    return ctx.stylize('' + value, 'boolean');
+  // For some reason typeof null is "object", so special case here.
+  if (isNull(value))
+    return ctx.stylize('null', 'null');
+}
+
+
+function formatError(value) {
+  return '[' + Error.prototype.toString.call(value) + ']';
+}
+
+
+function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
+  var output = [];
+  for (var i = 0, l = value.length; i < l; ++i) {
+    if (hasOwnProperty(value, String(i))) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          String(i), true));
+    } else {
+      output.push('');
+    }
+  }
+  keys.forEach(function(key) {
+    if (!key.match(/^\d+$/)) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          key, true));
+    }
+  });
+  return output;
+}
+
+
+function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
+  var name, str, desc;
+  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
+  if (desc.get) {
+    if (desc.set) {
+      str = ctx.stylize('[Getter/Setter]', 'special');
+    } else {
+      str = ctx.stylize('[Getter]', 'special');
+    }
+  } else {
+    if (desc.set) {
+      str = ctx.stylize('[Setter]', 'special');
+    }
+  }
+  if (!hasOwnProperty(visibleKeys, key)) {
+    name = '[' + key + ']';
+  }
+  if (!str) {
+    if (ctx.seen.indexOf(desc.value) < 0) {
+      if (isNull(recurseTimes)) {
+        str = formatValue(ctx, desc.value, null);
+      } else {
+        str = formatValue(ctx, desc.value, recurseTimes - 1);
+      }
+      if (str.indexOf('\n') > -1) {
+        if (array) {
+          str = str.split('\n').map(function(line) {
+            return '  ' + line;
+          }).join('\n').substr(2);
+        } else {
+          str = '\n' + str.split('\n').map(function(line) {
+            return '   ' + line;
+          }).join('\n');
+        }
+      }
+    } else {
+      str = ctx.stylize('[Circular]', 'special');
+    }
+  }
+  if (isUndefined(name)) {
+    if (array && key.match(/^\d+$/)) {
+      return str;
+    }
+    name = JSON.stringify('' + key);
+    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
+      name = name.substr(1, name.length - 2);
+      name = ctx.stylize(name, 'name');
+    } else {
+      name = name.replace(/'/g, "\\'")
+                 .replace(/\\"/g, '"')
+                 .replace(/(^"|"$)/g, "'");
+      name = ctx.stylize(name, 'string');
+    }
+  }
+
+  return name + ': ' + str;
+}
+
+
+function reduceToSingleString(output, base, braces) {
+  var numLinesEst = 0;
+  var length = output.reduce(function(prev, cur) {
+    numLinesEst++;
+    if (cur.indexOf('\n') >= 0) numLinesEst++;
+    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
+  }, 0);
+
+  if (length > 60) {
+    return braces[0] +
+           (base === '' ? '' : base + '\n ') +
+           ' ' +
+           output.join(',\n  ') +
+           ' ' +
+           braces[1];
+  }
+
+  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
+}
+
+
+// NOTE: These type checking functions intentionally don't use `instanceof`
+// because it is fragile and can be easily faked with `Object.create()`.
+function isArray(ar) {
+  return Array.isArray(ar);
+}
+exports.isArray = isArray;
+
+function isBoolean(arg) {
+  return typeof arg === 'boolean';
+}
+exports.isBoolean = isBoolean;
+
+function isNull(arg) {
+  return arg === null;
+}
+exports.isNull = isNull;
+
+function isNullOrUndefined(arg) {
+  return arg == null;
+}
+exports.isNullOrUndefined = isNullOrUndefined;
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+exports.isNumber = isNumber;
+
+function isString(arg) {
+  return typeof arg === 'string';
+}
+exports.isString = isString;
+
+function isSymbol(arg) {
+  return typeof arg === 'symbol';
+}
+exports.isSymbol = isSymbol;
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+exports.isUndefined = isUndefined;
+
+function isRegExp(re) {
+  return isObject(re) && objectToString(re) === '[object RegExp]';
+}
+exports.isRegExp = isRegExp;
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+exports.isObject = isObject;
+
+function isDate(d) {
+  return isObject(d) && objectToString(d) === '[object Date]';
+}
+exports.isDate = isDate;
+
+function isError(e) {
+  return isObject(e) &&
+      (objectToString(e) === '[object Error]' || e instanceof Error);
+}
+exports.isError = isError;
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+exports.isFunction = isFunction;
+
+function isPrimitive(arg) {
+  return arg === null ||
+         typeof arg === 'boolean' ||
+         typeof arg === 'number' ||
+         typeof arg === 'string' ||
+         typeof arg === 'symbol' ||  // ES6 symbol
+         typeof arg === 'undefined';
+}
+exports.isPrimitive = isPrimitive;
+
+exports.isBuffer = require('./support/isBuffer');
+
+function objectToString(o) {
+  return Object.prototype.toString.call(o);
+}
+
+
+function pad(n) {
+  return n < 10 ? '0' + n.toString(10) : n.toString(10);
+}
+
+
+var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+              'Oct', 'Nov', 'Dec'];
+
+// 26 Feb 16:19:34
+function timestamp() {
+  var d = new Date();
+  var time = [pad(d.getHours()),
+              pad(d.getMinutes()),
+              pad(d.getSeconds())].join(':');
+  return [d.getDate(), months[d.getMonth()], time].join(' ');
+}
+
+
+// log is just a thin wrapper to console.log that prepends a timestamp
+exports.log = function() {
+  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
+};
+
+
+/**
+ * Inherit the prototype methods from one constructor into another.
+ *
+ * The Function.prototype.inherits from lang.js rewritten as a standalone
+ * function (not on Function.prototype). NOTE: If this file is to be loaded
+ * during bootstrapping this function needs to be rewritten using some native
+ * functions as prototype setup using normal JavaScript does not work as
+ * expected during bootstrapping (see mirror.js in r114903).
+ *
+ * @param {function} ctor Constructor function which needs to inherit the
+ *     prototype.
+ * @param {function} superCtor Constructor function to inherit prototype from.
+ */
+exports.inherits = require('inherits');
+
+exports._extend = function(origin, add) {
+  // Don't do anything if add isn't an object
+  if (!add || !isObject(add)) return origin;
+
+  var keys = Object.keys(add);
+  var i = keys.length;
+  while (i--) {
+    origin[keys[i]] = add[keys[i]];
+  }
+  return origin;
+};
+
+function hasOwnProperty(obj, prop) {
+  return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
+}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./support/isBuffer":102,"_process":78,"inherits":62}],104:[function(require,module,exports){
 var waxeye;
 /*
 # Waxeye Parser Generator
@@ -19911,7 +20594,7 @@ if (typeof module !== "undefined" && module !== null) {
   module.exports.State = waxeye.State;
   module.exports.WaxeyeParser = waxeye.WaxeyeParser;
 }
-},{}],102:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 module.exports = extend
 
 var hasOwnProperty = Object.prototype.hasOwnProperty;
