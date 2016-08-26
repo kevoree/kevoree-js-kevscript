@@ -37,7 +37,7 @@ if (optimist.argv._.length === 1) {
     if (logLevel) {
       logger.setLevel(logLevel);
     }
-    var kevs = new KevScript(logger, new KevScript.cache.MemoryCache());
+    var kevs = new KevScript(logger);
 
     var ctxVars = {};
     if (optimist.argv.ctxVar) {

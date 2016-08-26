@@ -28,7 +28,7 @@ if (optimist.argv._.length === 1) {
     if (logLevel) {
       logger.setLevel(logLevel);
     }
-    var kevs = new KevScript(logger, new KevScript.cache.MemoryCache());
+    var kevs = new KevScript(logger);
 
     fs.readFile(input, 'utf8', function (err, data) {
         if (err) {
