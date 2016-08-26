@@ -1331,7 +1331,9 @@ module.exports = function (model, statements, stmt, opts, cb) {
 'use strict';
 
 module.exports = function (model, statements, stmt) {
-  return stmt.children.join('');
+  var value = new String(stmt.children.join(''));
+  value.pos = stmt.pos;
+  return value;
 };
 
 },{}],20:[function(require,module,exports){
@@ -1643,10 +1645,15 @@ module.exports = function (model, statements, stmt, opts, cb) {
 };
 
 },{"../KevScriptError":2}],23:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],24:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],25:[function(require,module,exports){
+'use strict';
+
+module.exports = function (model, statements, stmt) {
+  return stmt.children.join('');
+};
+
+},{}],24:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],25:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
@@ -1761,6 +1768,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
 
 module.exports = function (model, statements, stmt, opts) {
   var ret = [];
+  ret.pos = stmt.pos;
   for (var i in stmt.children) {
     ret.push(statements[stmt.children[i].type](model, statements, stmt.children[i], opts));
   }
@@ -1885,6 +1893,8 @@ module.exports = function (model, statements, stmt, opts) {
       str += statements[stmt.children[i].type](model, statements, stmt.children[i], opts);
     }
   }
+  str = new String(str);
+  str.pos = stmt.pos;
   return str;
 };
 
@@ -1892,7 +1902,9 @@ module.exports = function (model, statements, stmt, opts) {
 'use strict';
 
 module.exports = function (model, statements, stmt) {
-  return stmt.children[0].children.join('');
+  var value = new String(stmt.children[0].children.join(''));
+  value.pos = stmt.pos;
+  return value;
 };
 
 },{}],35:[function(require,module,exports){
@@ -2201,8 +2213,8 @@ module.exports = function (model, statements, stmt, opts, cb) {
 };
 
 },{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],38:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],39:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],39:[function(require,module,exports){
 'use strict';
 
 var KevScriptError = require('../KevScriptError');
@@ -2281,19 +2293,12 @@ module.exports = function (model, statements, stmt, opts, cb) {
 };
 
 },{"../KevScriptError":2}],41:[function(require,module,exports){
-'use strict';
-
-module.exports = function (model, statements, stmt) {
-  var value = stmt.children.join('');
-  value.pos = stmt.pos;
-  return value;
-};
-
-},{}],42:[function(require,module,exports){
-arguments[4][41][0].apply(exports,arguments)
-},{"dup":41}],43:[function(require,module,exports){
-arguments[4][41][0].apply(exports,arguments)
-},{"dup":41}],44:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}],42:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}],43:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}],44:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
@@ -2310,7 +2315,6 @@ function askRegistry(model, namespace, name, version, logger) {
     .then(function (res) {
       compare.merge(model, res.model).applyOn(model);
       var tdef = model.findByPath(res.path);
-      logger.debug('KevScript', 'Add ' + namespace + '.' + name + '/' + tdef.version + ' to cache');
       return tdef;
     });
 }
@@ -2384,7 +2388,9 @@ module.exports = function (model, statements, stmt, opts, cb) {
       typeFqn.push(statements[stmt.children[i].type](model, statements, stmt.children[i], opts, cb));
     }
   }
-  return typeFqn.join('');
+  var fqn = new String(typeFqn.join(''));
+  fqn.pos = stmt.pos;
+  return fqn;
 };
 
 },{}],46:[function(require,module,exports){
@@ -2417,8 +2423,8 @@ module.exports = function (model, statements, stmt) {
 };
 
 },{}],47:[function(require,module,exports){
-arguments[4][41][0].apply(exports,arguments)
-},{"dup":41}],48:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}],48:[function(require,module,exports){
 'use strict';
 
 var api = require('kevoree-registry-api');
@@ -2450,7 +2456,7 @@ module.exports = function typeDefResolver(namespace, name, version, logger) {
     if (version.tdef === 'LATEST') {
       logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/LATEST in the registry...');
       return api.tdef({
-        name: name,
+        name: name.toString(),
         namespace: {
           name: namespace
         }
@@ -2460,7 +2466,7 @@ module.exports = function typeDefResolver(namespace, name, version, logger) {
     } else {
       logger.debug('KevScript', 'Looking for ' + namespace + '.' + name + '/' + version.tdef + ' in the registry...');
       return api.tdef({
-        name: name,
+        name: name.toString(),
         version: version.tdef,
         namespace: {
           name: namespace
@@ -2530,6 +2536,13 @@ module.exports = function typeDefResolver(namespace, name, version, logger) {
             throw err;
           }
         });
+    }
+  })
+  .catch(function (err) {
+    if (err.code === 404) {
+      throw new Error('Unable to find ' + namespace + '.' + name + '/' + version.tdef);
+    } else {
+      throw err;
     }
   });
 };
