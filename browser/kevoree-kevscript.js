@@ -64,7 +64,7 @@ KevScript.prototype = {
     var parser = new kevs.Parser();
     var ast = parser.parse(data);
     if (ast.type !== 'kevScript') {
-      callback(new Error(ast.toString()));
+      callback(ast);
     } else {
       interpreter(ast, ctxModel, { logger: this.logger }, callback);
     }
