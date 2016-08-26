@@ -87,10 +87,11 @@ module.exports.Parser = kevs.Parser;
 
 var util = require('util');
 
-function KevScriptError(message) {
+function KevScriptError(message, pos) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
   this.message = message;
+  this.pos = pos;
 }
 
 util.inherits(KevScriptError, Error);
@@ -1129,14 +1130,14 @@ module.exports = function (model, statements, stmt, opts, cb) {
               inflateDictionary(instance);
               model.addHubs(instance);
             } else {
-              throw new KevScriptError('Unable to find a node, channel or group with name "' + instancePath + '"');
+              throw new KevScriptError('Unable to find a node, channel or group with name "' + instancePath[0] + '"', instancePath[0].pos);
             }
 
           } else if (instancePath.length === 2) {
             // component/subNode
             if (tdef.metaClassName() === 'org.kevoree.NodeType') {
               if (instancePath[0] === '*') {
-                throw new KevScriptError('Add statement with "*" only works for component type');
+                throw new KevScriptError('Add statement with "*" only works for component type', instancePath[0].pos);
               } else {
                 // add a subNode to a node
                 var hostNode = model.findNodesByID(instancePath[0]);
@@ -1150,7 +1151,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
                   instance.host = hostNode;
                   model.addNodes(instance);
                 } else {
-                  throw new KevScriptError('Unable to add node "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist');
+                  throw new KevScriptError('Unable to add node "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist', instancePath[0].pos);
                 }
               }
             } else if (tdef.metaClassName() === 'org.kevoree.ComponentType') {
@@ -1179,14 +1180,14 @@ module.exports = function (model, statements, stmt, opts, cb) {
                   createPorts(instance);
                   node.addComponents(instance);
                 } else {
-                  throw new KevScriptError('Unable to add component "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist');
+                  throw new KevScriptError('Unable to add component "'+instancePath[1]+'" to "'+instancePath[0]+'". "'+instancePath[0]+'" does not exist', instancePath[0].pos);
                 }
               }
             } else {
-              throw new KevScriptError('Instance "' + instancePath[1]+ '" of type ' + tdef.metaClassName() + ' cannot be added to a node');
+              throw new KevScriptError('Instance "' + instancePath[1]+ '" of type ' + tdef.metaClassName() + ' cannot be added to a node', instancePath[1].pos);
             }
           } else {
-            throw new KevScriptError('Instance path for "add" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid');
+            throw new KevScriptError('Instance path for "add" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid', instancePath.pos);
           }
         });
       } catch (err) {
@@ -1227,11 +1228,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (chan) {
           chans.push(chan);
         } else {
-          throw new KevScriptError('Unable to find chan instance "'+target[0]+'". Bind failed');
+          throw new KevScriptError('Unable to find chan instance "'+target[0]+'". Bind failed', target[0].pos);
         }
       }
     } else {
-      throw new KevScriptError('Bind target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Bind target path is invalid ('+target.join('.')+')', target.pos);
     }
 
     var nodes = [];
@@ -1245,11 +1246,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (node) {
           nodes.push(node);
         } else {
-          throw new KevScriptError('Unable to find node instance "'+portPath[0]+'". Bind failed');
+          throw new KevScriptError('Unable to find node instance "'+portPath[0]+'". Bind failed', portPath[0].pos);
         }
       }
     } else {
-      throw new KevScriptError('"'+portPath.join('.')+'" is not a valid bind path for a port');
+      throw new KevScriptError('"'+portPath.join('.')+'" is not a valid bind path for a port', portPath.pos);
     }
 
     var components = [];
@@ -1262,7 +1263,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (comp) {
           components.push(comp);
         } else {
-          throw new KevScriptError('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Bind failed');
+          throw new KevScriptError('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Bind failed', portPath[1].pos);
         }
       }
     });
@@ -1283,7 +1284,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
             // add output
             ports.push(port);
           } else {
-            throw new KevScriptError('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Bind failed');
+            throw new KevScriptError('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Bind failed', portPath[2].pos);
           }
         }
       }
@@ -1403,11 +1404,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (group) {
           groups.push(group);
         } else {
-          throw new KevScriptError('Unable to find group instance "'+target[0]+'". Attach failed');
+          throw new KevScriptError('Unable to find group instance "'+target[0]+'". Attach failed', target[0].pos);
         }
       }
     } else {
-      throw new KevScriptError('Attach target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Attach target path is invalid ('+target.join('.')+')', target.pos);
     }
 
     nameList.forEach(function (instancePath) {
@@ -1431,11 +1432,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
             });
             processFragmentDictionary(node);
           } else {
-            throw new KevScriptError('Unable to attach node instance "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to attach node instance "'+instancePath[0]+'". Instance does not exist', instancePath[0].pos);
           }
         }
       } else {
-        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid attach path for a node');
+        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid attach path for a node', instancePath.pos);
       }
     });
   } catch (err) {
@@ -1475,11 +1476,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (chan) {
           chans.push(chan);
         } else {
-          throw new KevScriptError('Unable to find chan instance "'+target[0]+'". Unbind failed');
+          throw new KevScriptError('Unable to find chan instance "'+target[0]+'". Unbind failed', target[0].pos);
         }
       }
     } else {
-      throw new KevScriptError('Unbind target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Unbind target path is invalid ('+target.join('.')+')', target.pos);
     }
 
     var nodes = [];
@@ -1493,11 +1494,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (node) {
           nodes.push(node);
         } else {
-          throw new KevScriptError('Unable to find node instance "'+portPath[0]+'". Unbind failed');
+          throw new KevScriptError('Unable to find node instance "'+portPath[0]+'". Unbind failed', portPath[0].pos);
         }
       }
     } else {
-      throw new KevScriptError('"'+portPath.join('.')+'" is not a valid unbind path for a port');
+      throw new KevScriptError('"'+portPath.join('.')+'" is not a valid unbind path for a port', portPath.pos);
     }
 
     var components = [];
@@ -1510,7 +1511,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (comp) {
           components.push(comp);
         } else {
-          throw new KevScriptError('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Unbind failed');
+          throw new KevScriptError('Unable to find component instance "'+portPath[1]+'" in node "'+portPath[0]+'". Unbind failed', portPath[1].pos);
         }
       }
     });
@@ -1531,7 +1532,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
             // add output
             ports.push(port);
           } else {
-            throw new KevScriptError('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Unbind failed');
+            throw new KevScriptError('Component "'+comp.name+'" in node "'+comp.eContainer().name+'" has no port named "'+portPath[2]+'". Unbind failed', portPath[2].pos);
           }
         }
       }
@@ -1599,11 +1600,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (group) {
           groups.push(group);
         } else {
-          throw new KevScriptError('Unable to find group instance "'+target[0]+'". Detach failed');
+          throw new KevScriptError('Unable to find group instance "'+target[0]+'". Detach failed', target[0].pos);
         }
       }
     } else {
-      throw new KevScriptError('Detach target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Detach target path is invalid ('+target.join('.')+')', target.pos);
     }
 
     nameList.forEach(function (instancePath) {
@@ -1627,11 +1628,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
               group.removeSubNodes(node);
             });
           } else {
-            throw new KevScriptError('Unable to detach node instance "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to detach node instance "'+instancePath[0]+'". Instance does not exist', instancePath[0].pos);
           }
         }
       } else {
-        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid detach path for a node');
+        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid detach path for a node', instancePath.pos);
       }
     });
   } catch (err) {
@@ -1658,6 +1659,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
 
 module.exports = function (model, statements, stmt, opts) {
   var instancePath = [];
+  instancePath.pos = stmt.pos;
   for (var i in stmt.children) {
     instancePath.push(statements[stmt.children[i].type](model, statements, stmt.children[i], opts));
   }
@@ -1684,17 +1686,17 @@ module.exports = function (model, statements, stmt, opts, cb) {
         if (node) {
           targetNodes.push(node);
         } else {
-          throw new KevScriptError('Unable to find node instance "'+target[0]+'". Move failed');
+          throw new KevScriptError('Unable to find node instance "'+target[0]+'". Move failed', target[0].pos);
         }
       }
     } else {
-      throw new KevScriptError('Move target path is invalid ('+target.join('.')+')');
+      throw new KevScriptError('Move target path is invalid ('+target.join('.')+')', target.pos);
     }
 
     nameList.forEach(function (instancePath) {
       if (instancePath.length === 1) {
         if (instancePath[0] === '*') {
-          throw new KevScriptError('Wildcard "*" cannot be used for nodes. Move failed');
+          throw new KevScriptError('Wildcard "*" cannot be used for nodes. Move failed', instancePath[0].pos);
         } else {
           // specific node instance to target
           var nodeToMove = model.findNodesByID(instancePath[0]);
@@ -1704,7 +1706,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
               nodeToMove.host = node;
             });
           } else {
-            throw new KevScriptError('Unable to move node instance "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to move node instance "'+instancePath[0]+'". Instance does not exist', instancePath[0].pos);
           }
         }
       } else if (instancePath.length === 2) {
@@ -1718,7 +1720,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
           if (node) {
             hosts.push(node);
           } else {
-            throw new KevScriptError('Unable to find node instance "'+instancePath[0]+'". Move failed');
+            throw new KevScriptError('Unable to find node instance "'+instancePath[0]+'". Move failed', instancePath[0].pos);
           }
         }
 
@@ -1744,7 +1746,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
           });
         });
       } else {
-        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid move path for an instance');
+        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid move path for an instance', instancePath.pos);
       }
     });
   } catch (err) {
@@ -1796,7 +1798,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
           if (node) {
             nodes.push(node);
           } else {
-            throw new KevScriptError('Unable to find node instance "'+networkPath[0]+'". Network failed');
+            throw new KevScriptError('Unable to find node instance "'+networkPath[0]+'". Network failed', networkPath[0].pos);
           }
         }
 
@@ -1847,7 +1849,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
           net.value = value;
         });
       } else {
-        throw new KevScriptError('"'+networkPath.join('.')+'" is not a network path. Network path must look like "nodeName.netType.netName"');
+        throw new KevScriptError('"'+networkPath.join('.')+'" is not a network path. Network path must look like "nodeName.netType.netName"', networkPath[0].pos);
       }
     } catch (err) {
       error = err;
@@ -2028,7 +2030,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
               removeChannel(instance);
             }
           } else {
-            throw new KevScriptError('Unable to remove instance "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to remove instance "'+instancePath[0]+'". Instance does not exist', instancePath[0].pos);
           }
         }
 
@@ -2045,12 +2047,12 @@ module.exports = function (model, statements, stmt, opts, cb) {
           if (hostNode) {
             removeFromNode(instancePath[1], hostNode);
           } else {
-            throw new KevScriptError('Unable to remove instances from "'+instancePath[0]+'". Instance does not exist');
+            throw new KevScriptError('Unable to remove instances from "'+instancePath[0]+'". Instance does not exist', instancePath[0].pos);
           }
         }
 
       } else {
-         throw new KevScriptError('Instance path for "remove" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid');
+         throw new KevScriptError('Instance path for "remove" statements must be "name" or "hostName.childName". Instance path "'+instancePath.join('.')+'" is not valid', instancePath[0].pos);
       }
     });
   } catch (err) {
@@ -2111,9 +2113,9 @@ function updateDictionary(dictionary, instance, attrName, value, isFragment) {
         dictionary.addValues(attr);
       } else {
         if (isFragment) {
-          throw new KevScriptError('Fragmented attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
+          throw new KevScriptError('Fragmented attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed', attrName.pos);
         } else {
-          throw new KevScriptError('Attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed');
+          throw new KevScriptError('Attribute "' + attrName + '" does not exist in type "' + instance.typeDefinition.name + '". Set failed', attrName.pos);
         }
       }
     }
@@ -2152,7 +2154,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
             updateDictionary(instance.dictionary, instance, attrPath[1], value, false);
           });
       } else {
-        throw new KevScriptError('"' + attrPath.join('.') + '" is not a valid attribute path');
+        throw new KevScriptError('"' + attrPath.join('.') + '" is not a valid attribute path', attrPath.pos);
       }
 
     } else if (stmt.children.length === 3) {
@@ -2162,7 +2164,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
       value = statements[stmt.children[2].type](model, statements, stmt.children[2], opts, cb);
 
       if (attrPath.length === 3) {
-        throw new KevScriptError('Setting fragmented attribute only makes sense for groups & channels. "' + attrPath.join('.') + '/' + nodePath.join('.') + '" can only refer to a component attribute. Set failed');
+        throw new KevScriptError('Setting fragmented attribute only makes sense for groups & channels. "' + attrPath.join('.') + '/' + nodePath.join('.') + '" can only refer to a component attribute. Set failed', attrPath.pos);
       } else if (attrPath.length === 2) {
         if (nodePath.length === 1) {
           model
@@ -2180,15 +2182,15 @@ module.exports = function (model, statements, stmt, opts, cb) {
                 if (fDic) {
                   updateDictionary(fDic, instance, attrPath[1], value, true);
                 } else {
-                  throw new KevScriptError('Unable to find fragment "' + nodePath[0] + '" for instance "' + attrPath[0] + '". Set failed');
+                  throw new KevScriptError('Unable to find fragment "' + nodePath[0] + '" for instance "' + attrPath[0] + '". Set failed', nodePath[0].pos);
                 }
               }
             });
         } else {
-          throw new KevScriptError('Invalid fragment path "' + nodePath.join('.') + '". Fragment path must be a node name. Set failed');
+          throw new KevScriptError('Invalid fragment path "' + nodePath.join('.') + '". Fragment path must be a node name. Set failed', nodePath.pos);
         }
       } else {
-        throw new KevScriptError('"' + attrPath.join('.') + '" is not a valid attribute path');
+        throw new KevScriptError('"' + attrPath.join('.') + '" is not a valid attribute path', attrPath.pos);
       }
     }
   } catch (err) {
@@ -2260,11 +2262,11 @@ module.exports = function (model, statements, stmt, opts, cb) {
         instances = model.select('/nodes['+instancePath[0]+']/components['+instancePath[1]+']').array;
 
       } else {
-        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid path for an instance. Stop failed');
+        throw new KevScriptError('"'+instancePath.join('.')+'" is not a valid path for an instance. Stop failed', instancePath.pos);
       }
 
       if (instancePath.indexOf('*') === -1 && instances.length === 0) {
-        throw new KevScriptError('Unable to stop "'+instancePath.join('.')+'". Instance does not exist');
+        throw new KevScriptError('Unable to stop "'+instancePath.join('.')+'". Instance does not exist', instancePath.pos);
       } else {
         instances.forEach(function (instance) {
           instance.started = false;
@@ -2279,16 +2281,24 @@ module.exports = function (model, statements, stmt, opts, cb) {
 };
 
 },{"../KevScriptError":2}],41:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],42:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],43:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],44:[function(require,module,exports){
+'use strict';
+
+module.exports = function (model, statements, stmt) {
+  var value = stmt.children.join('');
+  value.pos = stmt.pos;
+  return value;
+};
+
+},{}],42:[function(require,module,exports){
+arguments[4][41][0].apply(exports,arguments)
+},{"dup":41}],43:[function(require,module,exports){
+arguments[4][41][0].apply(exports,arguments)
+},{"dup":41}],44:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
 var tdefResolver = require('../typedef-resolver');
+var KevScriptError = require('../KevScriptError');
 
 var factory = new kevoree.factory.DefaultKevoreeFactory();
 var compare = factory.createModelCompare();
@@ -2334,7 +2344,9 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
       .then(function (tdef) {
         cb(null, tdef);
       })
-      .catch(cb);
+      .catch(function (err) {
+        cb(new KevScriptError(err.message, stmt.pos));
+      });
 
   } else {
     // specified version is not LATEST
@@ -2353,12 +2365,14 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
         .then(function (tdef) {
           cb(null, tdef);
         })
-        .catch(cb);
+        .catch(function (err) {
+          cb(new KevScriptError(err.message, stmt.pos));
+        });
     }
   }
 };
 
-},{"../typedef-resolver":48,"kevoree-library":"kevoree-library"}],45:[function(require,module,exports){
+},{"../KevScriptError":2,"../typedef-resolver":48,"kevoree-library":"kevoree-library"}],45:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
@@ -2379,7 +2393,8 @@ module.exports = function (model, statements, stmt, opts, cb) {
 module.exports = function (model, statements, stmt) {
   var version = {
     tdef: 'LATEST',
-    du:   'RELEASE'
+    du:   'RELEASE',
+    pos: stmt.pos
   };
 
   if (stmt.children.length === 1) {
@@ -2402,12 +2417,13 @@ module.exports = function (model, statements, stmt) {
 };
 
 },{}],47:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],48:[function(require,module,exports){
+arguments[4][41][0].apply(exports,arguments)
+},{"dup":41}],48:[function(require,module,exports){
 'use strict';
 
 var api = require('kevoree-registry-api');
 var kevoree = require('kevoree-library');
+
 var Q = require('q');
 
 function createPackage(factory, model, namespace) {
