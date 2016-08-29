@@ -1090,68 +1090,83 @@ function createPorts(comp) {
 
 module.exports = function (model, statements, stmt, opts, cb) {
   var factory = new kevoree.factory.DefaultKevoreeFactory();
-  var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
-  statements[stmt.children[1].type](model, statements, stmt.children[1], opts, function (err, tdef) {
-    if (err) {
-      cb(err);
-    } else {
-      var error;
-      try {
-        nameList.forEach(function (instancePath) {
-          var instance;
-          if (instancePath.length === 1) {
-            // node / chan / group
-            if (tdef.metaClassName() === 'org.kevoree.NodeType') {
-              instance = factory.createContainerNode();
-              instance.name = instancePath[0].value;
-              instance.started = true;
-              instance.typeDefinition = tdef;
-              inflateDictionary(instance);
-              model.addNodes(instance);
-            } else if (tdef.metaClassName() === 'org.kevoree.GroupType') {
-              instance = factory.createGroup();
-              instance.name = instancePath[0].value;
-              instance.started = true;
-              instance.typeDefinition = tdef;
-              inflateDictionary(instance);
-              model.addGroups(instance);
-            } else if (tdef.metaClassName() === 'org.kevoree.ChannelType') {
-              instance = factory.createChannel();
-              instance.name = instancePath[0].value;
-              instance.started = true;
-              instance.typeDefinition = tdef;
-              inflateDictionary(instance);
-              model.addHubs(instance);
-            } else {
-              throw new KevScriptError('Components must be added in nodes (eg. "add aNode.'+instancePath[0].value+': '+tdef.name+'"). "' + instancePath.value + '" is not valid', instancePath.pos);
-            }
-
-          } else if (instancePath.length === 2) {
-            // component/subNode
-            if (tdef.metaClassName() === 'org.kevoree.NodeType') {
-              if (instancePath[0].value === '*') {
-                throw new KevScriptError('Add statement with "*" only works for component type', instancePath[0].pos);
+  var error;
+  try {
+    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
+    statements[stmt.children[1].type](model, statements, stmt.children[1], opts, function (err, tdef) {
+      if (err) {
+        cb(err);
+      } else {
+        var error;
+        try {
+          nameList.forEach(function (instancePath) {
+            var instance;
+            if (instancePath.length === 1) {
+              // node / chan / group
+              if (tdef.metaClassName() === 'org.kevoree.NodeType') {
+                instance = factory.createContainerNode();
+                instance.name = instancePath[0].value;
+                instance.started = true;
+                instance.typeDefinition = tdef;
+                inflateDictionary(instance);
+                model.addNodes(instance);
+              } else if (tdef.metaClassName() === 'org.kevoree.GroupType') {
+                instance = factory.createGroup();
+                instance.name = instancePath[0].value;
+                instance.started = true;
+                instance.typeDefinition = tdef;
+                inflateDictionary(instance);
+                model.addGroups(instance);
+              } else if (tdef.metaClassName() === 'org.kevoree.ChannelType') {
+                instance = factory.createChannel();
+                instance.name = instancePath[0].value;
+                instance.started = true;
+                instance.typeDefinition = tdef;
+                inflateDictionary(instance);
+                model.addHubs(instance);
               } else {
-                // add a subNode to a node
-                var hostNode = model.findNodesByID(instancePath[0].value);
-                if (hostNode) {
-                  instance = factory.createContainerNode();
-                  instance.name = instancePath[1].value;
-                  instance.started = true;
-                  instance.typeDefinition = tdef;
-                  inflateDictionary(instance);
-                  hostNode.addHosts(instance);
-                  instance.host = hostNode;
-                  model.addNodes(instance);
-                } else {
-                  throw new KevScriptError('Unable to add node "'+instancePath[1].value+'" to "'+instancePath[0].value+'". "'+instancePath[0].value+'" does not exist', instancePath[0].pos);
-                }
+                throw new KevScriptError('Components must be added in nodes (eg. "add aNode.'+instancePath[0].value+': '+tdef.name+'"). "' + instancePath.value + '" is not valid', instancePath.pos);
               }
-            } else if (tdef.metaClassName() === 'org.kevoree.ComponentType') {
-              if (instancePath[0].value === '*') {
-                // add component to all non-hosted nodes
-                model.nodes.array.forEach(function (node) {
-                  if (!node.host) {
+
+            } else if (instancePath.length === 2) {
+              // component/subNode
+              if (tdef.metaClassName() === 'org.kevoree.NodeType') {
+                if (instancePath[0].value === '*') {
+                  throw new KevScriptError('Add statement with "*" only works for component type', instancePath[0].pos);
+                } else {
+                  // add a subNode to a node
+                  var hostNode = model.findNodesByID(instancePath[0].value);
+                  if (hostNode) {
+                    instance = factory.createContainerNode();
+                    instance.name = instancePath[1].value;
+                    instance.started = true;
+                    instance.typeDefinition = tdef;
+                    inflateDictionary(instance);
+                    hostNode.addHosts(instance);
+                    instance.host = hostNode;
+                    model.addNodes(instance);
+                  } else {
+                    throw new KevScriptError('Unable to add node "'+instancePath[1].value+'" to "'+instancePath[0].value+'". "'+instancePath[0].value+'" does not exist', instancePath[0].pos);
+                  }
+                }
+              } else if (tdef.metaClassName() === 'org.kevoree.ComponentType') {
+                if (instancePath[0].value === '*') {
+                  // add component to all non-hosted nodes
+                  model.nodes.array.forEach(function (node) {
+                    if (!node.host) {
+                      instance = factory.createComponentInstance();
+                      instance.name = instancePath[1].value;
+                      instance.started = true;
+                      instance.typeDefinition = tdef;
+                      inflateDictionary(instance);
+                      createPorts(instance);
+                      node.addComponents(instance);
+                    }
+                  });
+                } else {
+                  // add a component to a node
+                  var node = model.findNodesByID(instancePath[0].value);
+                  if (node) {
                     instance = factory.createComponentInstance();
                     instance.name = instancePath[1].value;
                     instance.started = true;
@@ -1159,37 +1174,29 @@ module.exports = function (model, statements, stmt, opts, cb) {
                     inflateDictionary(instance);
                     createPorts(instance);
                     node.addComponents(instance);
+                  } else {
+                    throw new KevScriptError('Unable to add component "'+instancePath[1].value+'" to "'+instancePath[0].value+'". "'+instancePath[0].value+'" does not exist', instancePath[0].pos);
                   }
-                });
-              } else {
-                // add a component to a node
-                var node = model.findNodesByID(instancePath[0].value);
-                if (node) {
-                  instance = factory.createComponentInstance();
-                  instance.name = instancePath[1].value;
-                  instance.started = true;
-                  instance.typeDefinition = tdef;
-                  inflateDictionary(instance);
-                  createPorts(instance);
-                  node.addComponents(instance);
-                } else {
-                  throw new KevScriptError('Unable to add component "'+instancePath[1].value+'" to "'+instancePath[0].value+'". "'+instancePath[0].value+'" does not exist', instancePath[0].pos);
                 }
+              } else {
+                throw new KevScriptError('Instance "' + instancePath[1].value+ '" of type ' + tdef.metaClassName() + ' cannot be added to a node', instancePath[1].pos);
               }
             } else {
-              throw new KevScriptError('Instance "' + instancePath[1].value+ '" of type ' + tdef.metaClassName() + ' cannot be added to a node', instancePath[1].pos);
+              throw new KevScriptError('Instance path for "add" statements must be "name" or "hostName.childName". Instance path "'+instancePath.value+'" is not valid', instancePath.pos);
             }
-          } else {
-            throw new KevScriptError('Instance path for "add" statements must be "name" or "hostName.childName". Instance path "'+instancePath.value+'" is not valid', instancePath.pos);
-          }
-        });
-      } catch (err) {
-        error = err;
-      } finally {
-        cb(error);
+          });
+        } catch (err) {
+          error = err;
+        } finally {
+          cb(error);
+        }
       }
-    }
-  });
+    });
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
 };
 
 },{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],17:[function(require,module,exports){
@@ -1207,11 +1214,10 @@ function hasBinding(model, chan, port) {
 }
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  var portPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-  var target = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-
   var error;
   try {
+    var portPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+    var target = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
     var chans = [];
     if (target.length === 1) {
       if (target[0].value === '*') {
@@ -1377,11 +1383,10 @@ function processFragmentDictionary(node) {
 }
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-  var target   = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-
   var error;
   try {
+    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+    var target   = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
     var groups = [];
     if (target.length === 1) {
       if (target[0].value === '*') {
@@ -1468,11 +1473,10 @@ function getBindings(model, chan, port) {
 }
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  var portPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-  var target = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-
   var error;
   try {
+    var portPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+    var target = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
     var chans = [];
     if (target.length === 1) {
       if (target[0].value === '*') {
@@ -1592,11 +1596,10 @@ function processFragmentDictionary(node) {
 }
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
-  var target = statements[stmt.children[1].type](model, statements, stmt.children[1], opts);
-
   var error;
   try {
+    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
+    var target = statements[stmt.children[1].type](model, statements, stmt.children[1], opts);
     var groups = [];
     if (target.length === 1) {
       if (target[0].value === '*') {
@@ -1708,11 +1711,10 @@ module.exports = function (model, statements, stmt, opts) {
 var KevScriptError = require('../KevScriptError');
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-  var target   = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-
   var error;
   try {
+    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+    var target   = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
     var targetNodes = [];
     if (target.length === 1) {
       if (target[0].value === '*') {
@@ -1822,80 +1824,79 @@ var kevoree = require('kevoree-library');
 var KevScriptError = require('../KevScriptError');
 
 module.exports = function (model, statements, stmt, opts, cb) {
+  var error;
+  try {
     var networkPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
     var value = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-
-    var error;
-    try {
-      if (networkPath.length === 3) {
-        var nodes = [];
-        if (networkPath[0].value === '*') {
-          // all nodes
-          nodes = model.nodes.array;
+    if (networkPath.length === 3) {
+      var nodes = [];
+      if (networkPath[0].value === '*') {
+        // all nodes
+        nodes = model.nodes.array;
+      } else {
+        // specific node
+        var node = model.findNodesByID(networkPath[0].value);
+        if (node) {
+          nodes.push(node);
         } else {
-          // specific node
-          var node = model.findNodesByID(networkPath[0].value);
-          if (node) {
-            nodes.push(node);
-          } else {
-            throw new KevScriptError('Unable to find node instance "'+networkPath[0].value+'". Network failed', networkPath[0].pos);
-          }
+          throw new KevScriptError('Unable to find node instance "' + networkPath[0].value + '". Network failed', networkPath[0].pos);
         }
+      }
 
-        var factory = new kevoree.factory.DefaultKevoreeFactory();
-        var netTypes = [];
-        if (networkPath[1].value === '*') {
-          // all network types
-          nodes.forEach(function (node) {
-            netTypes = netTypes.concat(node.networkInformation.array);
-          });
-        } else {
-          // specific network
-          nodes.forEach(function (node) {
-            var network = node.findNetworkInformationByID(networkPath[1].value);
-            if (network) {
-              netTypes.push(network);
-            } else {
-              network = factory.createNetworkInfo();
-              network.name = networkPath[1].value;
-              node.addNetworkInformation(network);
-              netTypes.push(network);
-            }
-          });
-        }
-
-        var netNames = [];
-        if (networkPath[2].value === '*') {
-          // all network names
-          netTypes.forEach(function (net) {
-            netNames = netNames.concat(net.values.array);
-          });
-        } else {
-          // specific network name
-          netTypes.forEach(function (net) {
-            var val = net.findValuesByID(networkPath[2].value);
-            if (val) {
-              netNames.push(val);
-            } else {
-              val = factory.createValue();
-              val.name = networkPath[2].value;
-              net.addValues(val);
-              netNames.push(val);
-            }
-          });
-        }
-
-        netNames.forEach(function (net) {
-          net.value = value;
+      var factory = new kevoree.factory.DefaultKevoreeFactory();
+      var netTypes = [];
+      if (networkPath[1].value === '*') {
+        // all network types
+        nodes.forEach(function (node) {
+          netTypes = netTypes.concat(node.networkInformation.array);
         });
       } else {
-        throw new KevScriptError('"'+networkPath.value+'" is not a network path. Network path must look like "nodeName.netType.netName"', networkPath[0].pos);
+        // specific network
+        nodes.forEach(function (node) {
+          var network = node.findNetworkInformationByID(networkPath[1].value);
+          if (network) {
+            netTypes.push(network);
+          } else {
+            network = factory.createNetworkInfo();
+            network.name = networkPath[1].value;
+            node.addNetworkInformation(network);
+            netTypes.push(network);
+          }
+        });
       }
-    } catch (err) {
-      error = err;
-    } finally {
-      cb(error);
+
+      var netNames = [];
+      if (networkPath[2].value === '*') {
+        // all network names
+        netTypes.forEach(function (net) {
+          netNames = netNames.concat(net.values.array);
+        });
+      } else {
+        // specific network name
+        netTypes.forEach(function (net) {
+          var val = net.findValuesByID(networkPath[2].value);
+          if (val) {
+            netNames.push(val);
+          } else {
+            val = factory.createValue();
+            val.name = networkPath[2].value;
+            net.addValues(val);
+            netNames.push(val);
+          }
+        });
+      }
+
+      netNames.forEach(function (net) {
+        net.value = value;
+      });
+    } else {
+      throw new KevScriptError('"' + networkPath.value + '" is not a network path. Network path must look like "nodeName.netType.netName"', networkPath[0].pos);
     }
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
+  }
 };
 
 },{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],33:[function(require,module,exports){
@@ -1950,8 +1951,6 @@ module.exports = function (model, statements, stmt) {
 var KevScriptError = require('../KevScriptError');
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-
   function removeNode(node) {
     // remove groups fragment dictionary related to this node
     model.groups.array.forEach(function (group) {
@@ -2050,6 +2049,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
 
   var error;
   try {
+    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
     nameList.forEach(function (instancePath) {
       var instance;
       if (instancePath.length === 1) {
@@ -2378,52 +2378,33 @@ function askRegistry(model, namespace, name, version, logger) {
 }
 
 module.exports = function typeDef(model, statements, stmt, opts, cb) {
-  var typeFqn = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-  var version, namespace;
+  var error;
+  try {
+    var typeFqn = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+    var version, namespace;
 
-  if (stmt.children[1]) {
-    version = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-  }
+    if (stmt.children[1]) {
+      version = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
+    }
 
-  var name = typeFqn.value;
-  if (name.split('.').length === 1) {
-    // default namespace to DEFAULT_NAMESPACE for namespace-less TypeDefinitions (ie: add node: JavascriptNode)
-    namespace = DEFAULT_NAMESPACE;
-  } else {
-    var splitted = name.split('.');
-    name = splitted.pop();
-    namespace = splitted.join('.');
-  }
-
-  if (!version) {
-    // default version
-    version = { tdef: 'LATEST', du: 'RELEASE' };
-  }
-
-  if (version.tdef === 'LATEST') {
-    // specified version is LATEST
-    // ask registry for LATEST
-    askRegistry(model, namespace, name, version, opts.logger)
-      .then(function (tdef) {
-        cb(null, tdef);
-      })
-      .catch(function (err) {
-        cb(new KevScriptError(err.message, stmt.pos));
-      });
-
-  } else {
-    // specified version is not LATEST
-    var tdefPath = '/packages[' + namespace.split('.').join(']/packages[') + ']/typeDefinitions[name=' + name + ',version=' + version.tdef + ']';
-
-    // try to find in model
-    var tdef = model.findByPath(tdefPath);
-    if (tdef) {
-      // found tdef in model
-      opts.logger.info('KevScript', 'Found ' + namespace + '.' + name + '/' + version.tdef + ' in model');
-      cb(null, tdef);
+    var name = typeFqn.value;
+    if (name.split('.').length === 1) {
+      // default namespace to DEFAULT_NAMESPACE for namespace-less TypeDefinitions (ie: add node: JavascriptNode)
+      namespace = DEFAULT_NAMESPACE;
     } else {
-      // unable to find tdef in model
-      // ask registry
+      var splitted = name.split('.');
+      name = splitted.pop();
+      namespace = splitted.join('.');
+    }
+
+    if (!version) {
+      // default version
+      version = { tdef: 'LATEST', du: 'RELEASE' };
+    }
+
+    if (version.tdef === 'LATEST') {
+      // specified version is LATEST
+      // ask registry for LATEST
       askRegistry(model, namespace, name, version, opts.logger)
         .then(function (tdef) {
           cb(null, tdef);
@@ -2431,7 +2412,33 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
         .catch(function (err) {
           cb(new KevScriptError(err.message, stmt.pos));
         });
+
+    } else {
+      // specified version is not LATEST
+      var tdefPath = '/packages[' + namespace.split('.').join(']/packages[') + ']/typeDefinitions[name=' + name + ',version=' + version.tdef + ']';
+
+      // try to find in model
+      var tdef = model.findByPath(tdefPath);
+      if (tdef) {
+        // found tdef in model
+        opts.logger.info('KevScript', 'Found ' + namespace + '.' + name + '/' + version.tdef + ' in model');
+        cb(null, tdef);
+      } else {
+        // unable to find tdef in model
+        // ask registry
+        askRegistry(model, namespace, name, version, opts.logger)
+          .then(function (tdef) {
+            cb(null, tdef);
+          })
+          .catch(function (err) {
+            cb(new KevScriptError(err.message, stmt.pos));
+          });
+      }
     }
+  } catch (err) {
+    error = err;
+  } finally {
+    cb(error);
   }
 };
 
