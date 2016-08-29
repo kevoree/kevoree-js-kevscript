@@ -59,8 +59,13 @@ if (optimist.argv._.length === 1) {
      */
     var kevscriptHandler = function (err, model) {
         if (err) {
-            console.log(chalk.red('Unable to parse KevScript')+'\n'+err.stack);
-            process.exit(1);
+          console.log(chalk.red('Unable to parse KevScript'));
+          if (err.nt) {
+            console.log('Unexpected token "' + err.nt + '" (l:' + err.line+':' +err.col+')');
+          } else {
+            console.log(err.stack);
+          }
+          process.exit(1);
         } else {
             try {
                 var modelStr = JSON.stringify(JSON.parse(serializer.serialize(model)), null, 4);

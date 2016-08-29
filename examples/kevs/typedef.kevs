@@ -1,4 +1,6 @@
-add node0: JavascriptNode/LATEST/LATEST
-add node0.ticker: kevoree.Ticker/LATEST/LATEST
+add node0, node1: JavascriptNode/LATEST/LATEST
+add sync: kevoree.WSGroup/LATEST/LATEST
 
-set node0.ticker.foo = 'false'
+attach * sync
+
+set sync.port/node0 = '9797'
