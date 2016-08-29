@@ -1,2 +1,4 @@
-add node0 : JavascriptNode/1/LATEST
-add sync: WSGroup/LATEST/LATEST
+add node0: JavascriptNode/LATEST/LATEST
+add node0.ticker: kevoree.Ticker/LATEST/LATEST
+
+set node0.ticker.foo = 'false'
