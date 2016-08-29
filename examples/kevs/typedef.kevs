@@ -1,6 +1,6 @@
-add node0, node1: JavascriptNode/LATEST/LATEST
-add sync: kevoree.WSGroup/LATEST/LATEST
+add %%ctx%%, %one%: JavascriptNode/LATEST/LATEST
+add sync: WSGroup/LATEST/LATEST
 
-attach * sync
+attach %one% *
 
-set sync.port/node0 = '9797'
+set %%ctx%%.logLevel = 'DEBUG'

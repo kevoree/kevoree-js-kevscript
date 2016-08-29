@@ -3,7 +3,6 @@
 
 var config = require('tiny-conf'),
   kevs = require('./parser'),
-  shortid = require('./shortid'),
   interpreter = require('./interpreter'),
   modelInterpreter = require('./model-interpreter');
 
@@ -13,9 +12,6 @@ function KevScript(logger) {
       (config.get('registry.ssl') ? 'https://':'http://') +
       config.get('registry.host') + (config.get('registry.port') === 80 ? '' : ':' + config.get('registry.port')));
 }
-
-var GEN_CTX_VAR = /(%(%([a-zA-Z0-9_]+)%)%)/g;
-var CTX_VAR = /%[a-zA-Z0-9_]+%/g;
 
 KevScript.prototype = {
   toString: function () {
@@ -45,28 +41,17 @@ KevScript.prototype = {
       ctxVars = {};
     }
 
-    var match = GEN_CTX_VAR.exec(data);
-    while (match !== null) {
-      ctxVars[match[3]] = shortid();
-      data = data.replace(new RegExp(match[1], 'g'), match[2]);
-      match = GEN_CTX_VAR.exec(data);
-    }
-
-    Object.keys(ctxVars).forEach(function (key) {
-      data = data.replace(new RegExp('%' + key + '%', 'g'), ctxVars[key]);
-    });
-
-    var res = CTX_VAR.exec(data);
-    if (res) {
-      callback(new Error('Context variable ' + res[0] + ' has no value (eg. --ctxVar ' + res[0] + '=foo)'));
-    }
+    var options = {
+      logger: this.logger,
+      ctxVars: ctxVars
+    };
 
     var parser = new kevs.Parser();
     var ast = parser.parse(data);
     if (ast.type !== 'kevScript') {
       callback(ast);
     } else {
-      interpreter(ast, ctxModel, { logger: this.logger }, callback);
+      interpreter(ast, ctxModel, options, callback);
     }
   },
 
@@ -82,7 +67,7 @@ KevScript.prototype = {
 module.exports = KevScript;
 module.exports.Parser = kevs.Parser;
 
-},{"./interpreter":12,"./model-interpreter":13,"./parser":14,"./shortid":15,"tiny-conf":"tiny-conf"}],2:[function(require,module,exports){
+},{"./interpreter":12,"./model-interpreter":13,"./parser":14,"tiny-conf":"tiny-conf"}],2:[function(require,module,exports){
 'use strict';
 
 var util = require('util');
@@ -98,7 +83,7 @@ util.inherits(KevScriptError, Error);
 
 module.exports = KevScriptError;
 
-},{"util":100}],3:[function(require,module,exports){
+},{"util":102}],3:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model) {
@@ -502,7 +487,7 @@ module.exports = function getFQN(tdef) {
   return fqn;
 };
 
-},{"semver":88}],12:[function(require,module,exports){
+},{"semver":90}],12:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
@@ -542,7 +527,9 @@ var statements = {
   escaped: require('./statements/escaped'),
   start: require('./statements/start'),
   stop: require('./statements/stop'),
-  pause: require('./statements/pause')
+  pause: require('./statements/pause'),
+  ctxVar: require('./statements/ctxVar'),
+  genCtxVar: require('./statements/genCtxVar')
 };
 
 var factory = new kevoree.factory.DefaultKevoreeFactory();
@@ -571,23 +558,13 @@ function interpreter(ast, ctxModel, opts, callback) {
   // this ContainerRoot is the root of the model
   factory.root(model);
 
-  var options = {
-    logger: opts.logger,
-    namespaces: {} // XXX get rid of this please.
-    // XXX Namespaces are a no go in kevscript
-    // XXX as they were intended in the first place.
-    // XXX Namespace were supposed to be a way to group
-    // XXX instances just in KevScript, but in the end no impl
-    // XXX were made
-  };
-
   // process statements
   var tasks = [];
   ast.children.forEach(function (child0) {
     child0.children.forEach(function (stmt) {
       tasks.push(function (done) {
         if (typeof (statements[stmt.type]) === 'function') {
-          statements[stmt.type](model, statements, stmt, options, done);
+          statements[stmt.type](model, statements, stmt, opts, done);
         } else {
           done(new Error('Unknown statement "' + stmt.type + '"'));
         }
@@ -614,7 +591,7 @@ function interpreter(ast, ctxModel, opts, callback) {
 
 module.exports = interpreter;
 
-},{"./statements/add":16,"./statements/addBinding":17,"./statements/addRepo":18,"./statements/anything":19,"./statements/attach":20,"./statements/delBinding":21,"./statements/detach":22,"./statements/doubleQuoteLine":23,"./statements/escaped":24,"./statements/include":25,"./statements/instancePath":26,"./statements/move":27,"./statements/nameList":28,"./statements/namespace":29,"./statements/network":30,"./statements/newLine":31,"./statements/pause":32,"./statements/realString":33,"./statements/realStringNoNewLine":34,"./statements/remove":35,"./statements/repoString":36,"./statements/set":37,"./statements/singleQuoteLine":38,"./statements/start":39,"./statements/stop":40,"./statements/string":41,"./statements/string2":42,"./statements/string3":43,"./statements/typeDef":44,"./statements/typeFQN":45,"./statements/version":46,"./statements/wildcard":47,"async":49,"kevoree-library":"kevoree-library","kevoree-validator":"kevoree-validator"}],13:[function(require,module,exports){
+},{"./statements/add":16,"./statements/addBinding":17,"./statements/addRepo":18,"./statements/anything":19,"./statements/attach":20,"./statements/ctxVar":21,"./statements/delBinding":22,"./statements/detach":23,"./statements/doubleQuoteLine":24,"./statements/escaped":25,"./statements/genCtxVar":26,"./statements/include":27,"./statements/instancePath":28,"./statements/move":29,"./statements/nameList":30,"./statements/namespace":31,"./statements/network":32,"./statements/newLine":33,"./statements/pause":34,"./statements/realString":35,"./statements/realStringNoNewLine":36,"./statements/remove":37,"./statements/repoString":38,"./statements/set":39,"./statements/singleQuoteLine":40,"./statements/start":41,"./statements/stop":42,"./statements/string":43,"./statements/string2":44,"./statements/string3":45,"./statements/typeDef":46,"./statements/typeFQN":47,"./statements/version":48,"./statements/wildcard":49,"async":51,"kevoree-library":"kevoree-library","kevoree-validator":"kevoree-validator"}],13:[function(require,module,exports){
 var repos       = require('./elements/repositories'),
     includes    = require('./elements/includes'),
     instances   = require('./elements/instances'),
@@ -667,11 +644,11 @@ if (typeof module !== 'undefined') {
 var Parser = (function() {
 
     var parser = function() { return this; };
-    parser.prototype = new waxeye.WaxeyeParser(0, true, [new waxeye.FA("kevScript", [new waxeye.State([new waxeye.Edge(54, 1, false)], false),
+    parser.prototype = new waxeye.WaxeyeParser(0, true, [new waxeye.FA("kevScript", [new waxeye.State([new waxeye.Edge(56, 1, false)], false),
             new waxeye.State([new waxeye.Edge(1, 2, false),
-                new waxeye.Edge(52, 3, true)], true),
-            new waxeye.State([new waxeye.Edge(54, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(53, 2, false)], true)], waxeye.FA.LEFT),
+                new waxeye.Edge(54, 3, true)], true),
+            new waxeye.State([new waxeye.Edge(56, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(55, 2, false)], true)], waxeye.FA.LEFT),
         new waxeye.FA("statement", [new waxeye.State([new waxeye.Edge(2, 1, false),
                 new waxeye.Edge(3, 1, false),
                 new waxeye.Edge(4, 1, false),
@@ -688,109 +665,123 @@ var Parser = (function() {
                 new waxeye.Edge(18, 1, false),
                 new waxeye.Edge(19, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("add", [new waxeye.State([new waxeye.Edge(37, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("add", [new waxeye.State([new waxeye.Edge(39, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(13, 3, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 4, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 4, false)], false),
             new waxeye.State([new waxeye.Edge(":", 5, true)], false),
-            new waxeye.State([new waxeye.Edge(54, 6, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 6, false)], false),
             new waxeye.State([new waxeye.Edge(14, 7, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("remove", [new waxeye.State([new waxeye.Edge(38, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("remove", [new waxeye.State([new waxeye.Edge(40, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(13, 3, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("move", [new waxeye.State([new waxeye.Edge(39, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("move", [new waxeye.State([new waxeye.Edge(41, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(13, 3, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 4, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 4, false)], false),
             new waxeye.State([new waxeye.Edge(20, 5, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("attach", [new waxeye.State([new waxeye.Edge(41, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("attach", [new waxeye.State([new waxeye.Edge(43, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(13, 3, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 4, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 4, false)], false),
             new waxeye.State([new waxeye.Edge(20, 5, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("detach", [new waxeye.State([new waxeye.Edge(42, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("detach", [new waxeye.State([new waxeye.Edge(44, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(13, 3, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 4, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 4, false)], false),
             new waxeye.State([new waxeye.Edge(20, 5, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("set", [new waxeye.State([new waxeye.Edge(40, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("set", [new waxeye.State([new waxeye.Edge(42, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(20, 3, false)], false),
             new waxeye.State([new waxeye.Edge("/", 4, true),
-                new waxeye.Edge(54, 6, false)], false),
+                new waxeye.Edge(56, 6, false)], false),
             new waxeye.State([new waxeye.Edge(20, 5, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 6, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 6, false)], false),
             new waxeye.State([new waxeye.Edge("=", 7, true)], false),
-            new waxeye.State([new waxeye.Edge(54, 8, false)], false),
-            new waxeye.State([new waxeye.Edge(29, 9, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 8, false)], false),
+            new waxeye.State([new waxeye.Edge(31, 9, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("network", [new waxeye.State([new waxeye.Edge(43, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("network", [new waxeye.State([new waxeye.Edge(45, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(20, 3, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 4, false)], false),
-            new waxeye.State([new waxeye.Edge(23, 5, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 4, false)], false),
+            new waxeye.State([new waxeye.Edge(25, 5, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("addBinding", [new waxeye.State([new waxeye.Edge(44, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("addBinding", [new waxeye.State([new waxeye.Edge(46, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(20, 3, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 4, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 4, false)], false),
             new waxeye.State([new waxeye.Edge(20, 5, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("delBinding", [new waxeye.State([new waxeye.Edge(45, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("delBinding", [new waxeye.State([new waxeye.Edge(47, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(20, 3, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 4, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 4, false)], false),
             new waxeye.State([new waxeye.Edge(20, 5, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("addRepo", [new waxeye.State([new waxeye.Edge(35, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
-            new waxeye.State([new waxeye.Edge(33, 3, false)], false),
+        new waxeye.FA("addRepo", [new waxeye.State([new waxeye.Edge(37, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
+            new waxeye.State([new waxeye.Edge(35, 3, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("include", [new waxeye.State([new waxeye.Edge(36, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
-            new waxeye.State([new waxeye.Edge(22, 3, false)], false),
+        new waxeye.FA("include", [new waxeye.State([new waxeye.Edge(38, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
+            new waxeye.State([new waxeye.Edge(24, 3, false)], false),
             new waxeye.State([new waxeye.Edge(":", 4, true)], false),
-            new waxeye.State([new waxeye.Edge(23, 5, false)], false),
+            new waxeye.State([new waxeye.Edge(25, 5, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
         new waxeye.FA("nameList", [new waxeye.State([new waxeye.Edge(20, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge([","], 3, true)], true),
-            new waxeye.State([new waxeye.Edge(54, 4, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 4, false)], false),
             new waxeye.State([new waxeye.Edge(20, 2, false)], false)], waxeye.FA.LEFT),
         new waxeye.FA("typeDef", [new waxeye.State([new waxeye.Edge(15, 1, false)], false),
             new waxeye.State([new waxeye.Edge("/", 2, true)], true),
-            new waxeye.State([new waxeye.Edge(25, 3, false)], false),
+            new waxeye.State([new waxeye.Edge(27, 3, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("typeFQN", [new waxeye.State([new waxeye.Edge(24, 1, false)], false),
+        new waxeye.FA("typeFQN", [new waxeye.State([new waxeye.Edge(26, 1, false)], false),
             new waxeye.State([new waxeye.Edge(["."], 2, false)], true),
-            new waxeye.State([new waxeye.Edge(24, 1, false)], false)], waxeye.FA.LEFT),
-        new waxeye.FA("namespace", [new waxeye.State([new waxeye.Edge(46, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
-            new waxeye.State([new waxeye.Edge(22, 3, false)], false),
+            new waxeye.State([new waxeye.Edge(26, 1, false)], false)], waxeye.FA.LEFT),
+        new waxeye.FA("namespace", [new waxeye.State([new waxeye.Edge(48, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
+            new waxeye.State([new waxeye.Edge(24, 3, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("start", [new waxeye.State([new waxeye.Edge(47, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("start", [new waxeye.State([new waxeye.Edge(49, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(13, 3, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("stop", [new waxeye.State([new waxeye.Edge(48, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("stop", [new waxeye.State([new waxeye.Edge(50, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(13, 3, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("pause", [new waxeye.State([new waxeye.Edge(49, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(54, 2, false)], false),
+        new waxeye.FA("pause", [new waxeye.State([new waxeye.Edge(51, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(56, 2, false)], false),
             new waxeye.State([new waxeye.Edge(13, 3, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
         new waxeye.FA("instancePath", [new waxeye.State([new waxeye.Edge(21, 1, false),
-                new waxeye.Edge(22, 1, false)], false),
+                new waxeye.Edge(24, 1, false),
+                new waxeye.Edge(22, 1, false),
+                new waxeye.Edge(23, 1, false)], false),
             new waxeye.State([new waxeye.Edge(["."], 2, true)], true),
             new waxeye.State([new waxeye.Edge(21, 1, false),
-                new waxeye.Edge(22, 1, false)], false)], waxeye.FA.LEFT),
+                new waxeye.Edge(24, 1, false),
+                new waxeye.Edge(22, 1, false),
+                new waxeye.Edge(23, 1, false)], false)], waxeye.FA.LEFT),
         new waxeye.FA("wildcard", [new waxeye.State([new waxeye.Edge("*", 1, false)], false),
+            new waxeye.State([], true)], waxeye.FA.LEFT),
+        new waxeye.FA("ctxVar", [new waxeye.State([new waxeye.Edge("%", 1, true)], false),
+            new waxeye.State([new waxeye.Edge(24, 2, false)], false),
+            new waxeye.State([new waxeye.Edge("%", 3, true)], false),
+            new waxeye.State([], true)], waxeye.FA.LEFT),
+        new waxeye.FA("genCtxVar", [new waxeye.State([new waxeye.Edge("%", 1, true)], false),
+            new waxeye.State([new waxeye.Edge("%", 2, true)], false),
+            new waxeye.State([new waxeye.Edge(24, 3, false)], false),
+            new waxeye.State([new waxeye.Edge("%", 4, true)], false),
+            new waxeye.State([new waxeye.Edge("%", 5, true)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
         new waxeye.FA("string", [new waxeye.State([new waxeye.Edge(["-", [48, 57], [65, 90], "_", [97, 122]], 1, false)], false),
             new waxeye.State([new waxeye.Edge(["-", [48, 57], [65, 90], "_", [97, 122]], 1, false)], true)], waxeye.FA.LEFT),
@@ -799,70 +790,70 @@ var Parser = (function() {
         new waxeye.FA("string3", [new waxeye.State([new waxeye.Edge([[48, 57], [65, 90], "_", [97, 122]], 1, false)], false),
             new waxeye.State([new waxeye.Edge([[48, 57], [65, 90], "_", [97, 122]], 1, false)], true)], waxeye.FA.PRUNE),
         new waxeye.FA("version", [new waxeye.State([new waxeye.Edge([[48, 57]], 1, false),
-                new waxeye.Edge(27, 4, false)], false),
+                new waxeye.Edge(29, 4, false)], false),
             new waxeye.State([new waxeye.Edge([[48, 57]], 1, false),
                 new waxeye.Edge("/", 2, true)], true),
-            new waxeye.State([new waxeye.Edge(26, 3, false),
-                new waxeye.Edge(27, 3, false)], false),
+            new waxeye.State([new waxeye.Edge(28, 3, false),
+                new waxeye.Edge(29, 3, false)], false),
             new waxeye.State([], true),
             new waxeye.State([new waxeye.Edge("/", 2, true)], true)], waxeye.FA.LEFT),
-        new waxeye.FA("release", [new waxeye.State([new waxeye.Edge(51, 1, false)], false),
+        new waxeye.FA("release", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("latest", [new waxeye.State([new waxeye.Edge(50, 1, false)], false),
+        new waxeye.FA("latest", [new waxeye.State([new waxeye.Edge(52, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("line", [new waxeye.State([new waxeye.Edge(56, 1, false)], false),
+        new waxeye.FA("line", [new waxeye.State([new waxeye.Edge(58, 1, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 2, false)], false),
-            new waxeye.State([new waxeye.Edge(55, 3, false)], true),
+            new waxeye.State([new waxeye.Edge(57, 3, false)], true),
             new waxeye.State([new waxeye.Edge(-1, 2, false)], false)], waxeye.FA.LEFT),
         new waxeye.FA("realString", [new waxeye.State([new waxeye.Edge(["\'"], 1, true),
                 new waxeye.Edge(["\""], 3, true)], false),
-            new waxeye.State([new waxeye.Edge(34, 1, false),
-                new waxeye.Edge(30, 1, false),
-                new waxeye.Edge(31, 1, false),
+            new waxeye.State([new waxeye.Edge(36, 1, false),
+                new waxeye.Edge(32, 1, false),
+                new waxeye.Edge(33, 1, false),
                 new waxeye.Edge(["\'"], 2, true)], false),
             new waxeye.State([], true),
-            new waxeye.State([new waxeye.Edge(34, 3, false),
-                new waxeye.Edge(30, 3, false),
+            new waxeye.State([new waxeye.Edge(36, 3, false),
                 new waxeye.Edge(32, 3, false),
+                new waxeye.Edge(34, 3, false),
                 new waxeye.Edge(["\""], 2, true)], false)], waxeye.FA.LEFT),
         new waxeye.FA("escaped", [new waxeye.State([new waxeye.Edge(["\\"], 1, false)], false),
-            new waxeye.State([new waxeye.Edge(57, 2, false)], false),
+            new waxeye.State([new waxeye.Edge(59, 2, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 3, false)], false),
             new waxeye.State([], true)], waxeye.FA.LEFT),
-        new waxeye.FA("singleQuoteLine", [new waxeye.State([new waxeye.Edge(63, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(62, 2, false)], false),
-            new waxeye.State([new waxeye.Edge(61, 3, false)], false),
+        new waxeye.FA("singleQuoteLine", [new waxeye.State([new waxeye.Edge(65, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(64, 2, false)], false),
+            new waxeye.State([new waxeye.Edge(63, 3, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 4, false)], false),
-            new waxeye.State([new waxeye.Edge(60, 5, false)], true),
-            new waxeye.State([new waxeye.Edge(59, 6, false)], false),
-            new waxeye.State([new waxeye.Edge(58, 7, false)], false),
+            new waxeye.State([new waxeye.Edge(62, 5, false)], true),
+            new waxeye.State([new waxeye.Edge(61, 6, false)], false),
+            new waxeye.State([new waxeye.Edge(60, 7, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 4, false)], false)], waxeye.FA.LEFT),
-        new waxeye.FA("doubleQuoteLine", [new waxeye.State([new waxeye.Edge(69, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(68, 2, false)], false),
-            new waxeye.State([new waxeye.Edge(67, 3, false)], false),
+        new waxeye.FA("doubleQuoteLine", [new waxeye.State([new waxeye.Edge(71, 1, false)], false),
+            new waxeye.State([new waxeye.Edge(70, 2, false)], false),
+            new waxeye.State([new waxeye.Edge(69, 3, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 4, false)], false),
-            new waxeye.State([new waxeye.Edge(66, 5, false)], true),
-            new waxeye.State([new waxeye.Edge(65, 6, false)], false),
-            new waxeye.State([new waxeye.Edge(64, 7, false)], false),
+            new waxeye.State([new waxeye.Edge(68, 5, false)], true),
+            new waxeye.State([new waxeye.Edge(67, 6, false)], false),
+            new waxeye.State([new waxeye.Edge(66, 7, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 4, false)], false)], waxeye.FA.LEFT),
         new waxeye.FA("realStringNoNewLine", [new waxeye.State([new waxeye.Edge(["\'"], 1, true),
                 new waxeye.Edge(["\""], 8, true)], false),
             new waxeye.State([new waxeye.Edge(["\\"], 2, false),
-                new waxeye.Edge(73, 4, false),
+                new waxeye.Edge(75, 4, false),
                 new waxeye.Edge(["\'"], 7, true)], false),
-            new waxeye.State([new waxeye.Edge(70, 3, false)], false),
+            new waxeye.State([new waxeye.Edge(72, 3, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 1, false)], false),
-            new waxeye.State([new waxeye.Edge(72, 5, false)], false),
-            new waxeye.State([new waxeye.Edge(71, 6, false)], false),
+            new waxeye.State([new waxeye.Edge(74, 5, false)], false),
+            new waxeye.State([new waxeye.Edge(73, 6, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 1, false)], false),
             new waxeye.State([], true),
             new waxeye.State([new waxeye.Edge(["\\"], 9, false),
-                new waxeye.Edge(77, 11, false),
+                new waxeye.Edge(79, 11, false),
                 new waxeye.Edge(["\""], 7, true)], false),
-            new waxeye.State([new waxeye.Edge(74, 10, false)], false),
+            new waxeye.State([new waxeye.Edge(76, 10, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 8, false)], false),
-            new waxeye.State([new waxeye.Edge(76, 12, false)], false),
-            new waxeye.State([new waxeye.Edge(75, 13, false)], false),
+            new waxeye.State([new waxeye.Edge(78, 12, false)], false),
+            new waxeye.State([new waxeye.Edge(77, 13, false)], false),
             new waxeye.State([new waxeye.Edge(-1, 8, false)], false)], waxeye.FA.LEFT),
         new waxeye.FA("newLine", [new waxeye.State([new waxeye.Edge("\r", 1, true),
                 new waxeye.Edge("\n", 2, true),
@@ -980,7 +971,7 @@ var Parser = (function() {
             new waxeye.State([], true)], waxeye.FA.VOID),
         new waxeye.FA("comment", [new waxeye.State([new waxeye.Edge("/", 1, false)], false),
             new waxeye.State([new waxeye.Edge("/", 2, false)], false),
-            new waxeye.State([new waxeye.Edge(28, 3, false)], true),
+            new waxeye.State([new waxeye.Edge(30, 3, false)], true),
             new waxeye.State([], true)], waxeye.FA.VOID),
         new waxeye.FA("eol", [new waxeye.State([new waxeye.Edge("\r", 1, false),
                 new waxeye.Edge("\n", 2, false),
@@ -988,48 +979,48 @@ var Parser = (function() {
             new waxeye.State([new waxeye.Edge("\n", 2, false)], false),
             new waxeye.State([], true)], waxeye.FA.VOID),
         new waxeye.FA("ws", [new waxeye.State([new waxeye.Edge(["\t", " "], 0, false),
-                new waxeye.Edge(53, 0, false)], true)], waxeye.FA.VOID),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+                new waxeye.Edge(55, 0, false)], true)], waxeye.FA.VOID),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
-            new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\\"], 1, false)], false),
-            new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\'"], 1, false)], false),
-            new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
         new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\\"], 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
         new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\'"], 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
+            new waxeye.State([], true)], waxeye.FA.NEG),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\\"], 1, false)], false),
+            new waxeye.State([], true)], waxeye.FA.NEG),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\'"], 1, false)], false),
+            new waxeye.State([], true)], waxeye.FA.NEG),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
         new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\\"], 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
         new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\""], 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
         new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\\"], 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
         new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\""], 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
         new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\\"], 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
         new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\'"], 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
-        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(53, 1, false)], false),
+        new waxeye.FA("", [new waxeye.State([new waxeye.Edge(55, 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
         new waxeye.FA("", [new waxeye.State([new waxeye.Edge(["\\"], 1, false)], false),
             new waxeye.State([], true)], waxeye.FA.NEG),
@@ -1044,12 +1035,14 @@ if (typeof module !== 'undefined') {
     module.exports.Parser = Parser;
 }
 
-},{"waxeye":101}],15:[function(require,module,exports){
+},{"waxeye":103}],15:[function(require,module,exports){
+'use strict';
+
 var CHARS = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 module.exports = function shortid() {
     var id = '';
-    for (var i = 0; i < 9; i++) {
+    for (var i = 0; i < 6; i++) {
         id += CHARS[Math.floor(Math.random()*CHARS.length)];
     }
     return id;
@@ -1445,6 +1438,25 @@ module.exports = function (model, statements, stmt, opts, cb) {
 
 var KevScriptError = require('../KevScriptError');
 
+module.exports = function (model, stmts, stmt, opts) {
+  var value;
+  var ctxVarKey = stmts[stmt.children[0].type](model, stmts, stmt.children[0]).value;
+  if (opts.ctxVars[ctxVarKey]) {
+    value = opts.ctxVars[ctxVarKey];
+  } else {
+    throw new KevScriptError('Missing context variable "%'+ctxVarKey+'%" value', stmt.pos);
+  }
+  return {
+    value: value,
+    pos: stmt.pos
+  };
+};
+
+},{"../KevScriptError":2}],22:[function(require,module,exports){
+'use strict';
+
+var KevScriptError = require('../KevScriptError');
+
 function getBindings(model, chan, port) {
   return model.mBindings.array.filter(function (binding) {
     if (binding.hub && binding.port) {
@@ -1552,7 +1564,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"../KevScriptError":2}],22:[function(require,module,exports){
+},{"../KevScriptError":2}],23:[function(require,module,exports){
 'use strict';
 
 var KevScriptError = require('../KevScriptError');
@@ -1636,9 +1648,9 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"../KevScriptError":2}],23:[function(require,module,exports){
+},{"../KevScriptError":2}],24:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],24:[function(require,module,exports){
+},{"dup":19}],25:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt) {
@@ -1648,7 +1660,26 @@ module.exports = function (model, statements, stmt) {
   };
 };
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
+'use strict';
+
+var shortid = require('../shortid');
+
+module.exports = function (model, stmts, stmt, opts) {
+  var value;
+  var ctxVarKey = stmts[stmt.children[0].type](model, stmts, stmt.children[0]).value;
+  if (opts.ctxVars[ctxVarKey]) {
+    value = opts.ctxVars[ctxVarKey];
+  } else {
+    opts.ctxVars[ctxVarKey] = value = shortid();
+  }
+  return {
+    value: value,
+    pos: stmt.pos
+  };
+};
+
+},{"../shortid":15}],27:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
@@ -1656,7 +1687,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   cb();
 };
 
-},{}],26:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts) {
@@ -1671,7 +1702,7 @@ module.exports = function (model, statements, stmt, opts) {
   return instancePath;
 };
 
-},{}],27:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 'use strict';
 
 var KevScriptError = require('../KevScriptError');
@@ -1761,7 +1792,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"../KevScriptError":2}],28:[function(require,module,exports){
+},{"../KevScriptError":2}],30:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts) {
@@ -1776,7 +1807,7 @@ module.exports = function (model, statements, stmt, opts) {
   return ret;
 };
 
-},{}],29:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
@@ -1784,7 +1815,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   cb();
 };
 
-},{}],30:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
@@ -1867,7 +1898,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
     }
 };
 
-},{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],31:[function(require,module,exports){
+},{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],33:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt) {
@@ -1877,7 +1908,7 @@ module.exports = function (model, statements, stmt) {
   };
 };
 
-},{}],32:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
@@ -1885,7 +1916,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   cb();
 };
 
-},{}],33:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt, opts) {
@@ -1903,7 +1934,7 @@ module.exports = function (model, statements, stmt, opts) {
   };
 };
 
-},{}],34:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt) {
@@ -1913,7 +1944,7 @@ module.exports = function (model, statements, stmt) {
   };
 };
 
-},{}],35:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 'use strict';
 
 var KevScriptError = require('../KevScriptError');
@@ -2080,9 +2111,9 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"../KevScriptError":2}],36:[function(require,module,exports){
+},{"../KevScriptError":2}],38:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],37:[function(require,module,exports){
+},{"dup":19}],39:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
@@ -2239,9 +2270,9 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],38:[function(require,module,exports){
+},{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],40:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],39:[function(require,module,exports){
+},{"dup":19}],41:[function(require,module,exports){
 'use strict';
 
 var KevScriptError = require('../KevScriptError');
@@ -2249,7 +2280,7 @@ var KevScriptError = require('../KevScriptError');
 module.exports = function (model, statements, stmt, opts, cb) {
   var error;
   try {
-    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0]);
+    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
     nameList.forEach(function (instancePath) {
       var instances = [];
       if (instancePath.length === 1) {
@@ -2280,7 +2311,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"../KevScriptError":2}],40:[function(require,module,exports){
+},{"../KevScriptError":2}],42:[function(require,module,exports){
 'use strict';
 
 var KevScriptError = require('../KevScriptError');
@@ -2288,7 +2319,7 @@ var KevScriptError = require('../KevScriptError');
 module.exports = function (model, statements, stmt, opts, cb) {
   var error;
   try {
-    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0]);
+    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
     nameList.forEach(function (instancePath) {
       var instances = [];
       if (instancePath.length === 1) {
@@ -2319,13 +2350,13 @@ module.exports = function (model, statements, stmt, opts, cb) {
   }
 };
 
-},{"../KevScriptError":2}],41:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],42:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],43:[function(require,module,exports){
+},{"../KevScriptError":2}],43:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
 },{"dup":19}],44:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}],45:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}],46:[function(require,module,exports){
 'use strict';
 
 var kevoree = require('kevoree-library');
@@ -2404,7 +2435,7 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
   }
 };
 
-},{"../KevScriptError":2,"../typedef-resolver":48,"kevoree-library":"kevoree-library"}],45:[function(require,module,exports){
+},{"../KevScriptError":2,"../typedef-resolver":50,"kevoree-library":"kevoree-library"}],47:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt) {
@@ -2421,7 +2452,7 @@ module.exports = function (model, statements, stmt) {
   };
 };
 
-},{}],46:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 'use strict';
 
 module.exports = function (model, statements, stmt) {
@@ -2450,9 +2481,9 @@ module.exports = function (model, statements, stmt) {
   return version;
 };
 
-},{}],47:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],48:[function(require,module,exports){
+},{"dup":19}],50:[function(require,module,exports){
 'use strict';
 
 var api = require('kevoree-registry-api');
@@ -2575,7 +2606,7 @@ module.exports = function typeDefResolver(namespace, name, version, logger) {
   });
 };
 
-},{"kevoree-library":"kevoree-library","kevoree-registry-api":62,"q":77}],49:[function(require,module,exports){
+},{"kevoree-library":"kevoree-library","kevoree-registry-api":64,"q":79}],51:[function(require,module,exports){
 (function (process,global){
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
@@ -7793,7 +7824,7 @@ module.exports = function typeDefResolver(namespace, name, version, logger) {
 
 }));
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":75}],50:[function(require,module,exports){
+},{"_process":77}],52:[function(require,module,exports){
 'use strict'
 
 exports.toByteArray = toByteArray
@@ -7904,9 +7935,9 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],51:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 
-},{}],52:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -8018,7 +8049,7 @@ exports.allocUnsafeSlow = function allocUnsafeSlow(size) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"buffer":53}],53:[function(require,module,exports){
+},{"buffer":55}],55:[function(require,module,exports){
 (function (global){
 /*!
  * The buffer module from node.js, for the browser.
@@ -9811,7 +9842,7 @@ function isnan (val) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":50,"ieee754":58,"isarray":61}],54:[function(require,module,exports){
+},{"base64-js":52,"ieee754":60,"isarray":63}],56:[function(require,module,exports){
 module.exports = {
   "100": "Continue",
   "101": "Switching Protocols",
@@ -9876,7 +9907,7 @@ module.exports = {
   "511": "Network Authentication Required"
 }
 
-},{}],55:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -9987,7 +10018,7 @@ function objectToString(o) {
 }
 
 }).call(this,{"isBuffer":require("../../is-buffer/index.js")})
-},{"../../is-buffer/index.js":60}],56:[function(require,module,exports){
+},{"../../is-buffer/index.js":62}],58:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -10291,7 +10322,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],57:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 var http = require('http');
 
 var https = module.exports;
@@ -10307,7 +10338,7 @@ https.request = function (params, cb) {
     return http.request.call(this, params, cb);
 }
 
-},{"http":89}],58:[function(require,module,exports){
+},{"http":91}],60:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -10393,7 +10424,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],59:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -10418,7 +10449,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],60:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -10441,14 +10472,14 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],61:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],62:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 exports.du         = require('./lib/du');
 exports.dus        = require('./lib/dus');
 exports.auth       = require('./lib/auth');
@@ -10459,7 +10490,7 @@ exports.refresh    = require('./lib/refresh');
 exports.namespace  = require('./lib/namespace');
 exports.namespaces = require('./lib/namespaces');
 
-},{"./lib/auth":63,"./lib/du":64,"./lib/dus":65,"./lib/namespace":66,"./lib/namespaces":67,"./lib/refresh":68,"./lib/tdef":69,"./lib/tdefs":70,"./lib/whoami":73}],63:[function(require,module,exports){
+},{"./lib/auth":65,"./lib/du":66,"./lib/dus":67,"./lib/namespace":68,"./lib/namespaces":69,"./lib/refresh":70,"./lib/tdef":71,"./lib/tdefs":72,"./lib/whoami":75}],65:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -10616,7 +10647,7 @@ function auth(params) {
 module.exports = auth;
 
 }).call(this,require("buffer").Buffer)
-},{"./refresh":68,"buffer":53,"http":89,"https":57,"q":77,"tiny-conf":"tiny-conf"}],64:[function(require,module,exports){
+},{"./refresh":70,"buffer":55,"http":91,"https":59,"q":79,"tiny-conf":"tiny-conf"}],66:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -11003,7 +11034,7 @@ function du(params) {
 module.exports = du;
 
 }).call(this,require("buffer").Buffer)
-},{"./util/response-helper":71,"./util/validate":72,"buffer":53,"http":89,"https":57,"q":77,"tiny-conf":"tiny-conf","url-template":95}],65:[function(require,module,exports){
+},{"./util/response-helper":73,"./util/validate":74,"buffer":55,"http":91,"https":59,"q":79,"tiny-conf":"tiny-conf","url-template":97}],67:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -11090,7 +11121,7 @@ function dus(namespace, tdefName, tdefVersion, name, version) {
 
 module.exports = dus;
 
-},{"./util/response-helper":71,"http":89,"https":57,"q":77,"tiny-conf":"tiny-conf","url-template":95}],66:[function(require,module,exports){
+},{"./util/response-helper":73,"http":91,"https":59,"q":79,"tiny-conf":"tiny-conf","url-template":97}],68:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -11227,7 +11258,7 @@ function namespace(params) {
 module.exports = namespace;
 
 }).call(this,require("buffer").Buffer)
-},{"./util/response-helper":71,"buffer":53,"http":89,"https":57,"q":77,"tiny-conf":"tiny-conf","url-template":95}],67:[function(require,module,exports){
+},{"./util/response-helper":73,"buffer":55,"http":91,"https":59,"q":79,"tiny-conf":"tiny-conf","url-template":97}],69:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -11279,7 +11310,7 @@ function namespaces() {
 
 module.exports = namespaces;
 
-},{"./util/response-helper":71,"http":89,"https":57,"q":77,"tiny-conf":"tiny-conf"}],68:[function(require,module,exports){
+},{"./util/response-helper":73,"http":91,"https":59,"q":79,"tiny-conf":"tiny-conf"}],70:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -11364,7 +11395,7 @@ function refresh() {
 module.exports = refresh;
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":53,"http":89,"https":57,"q":77,"tiny-conf":"tiny-conf"}],69:[function(require,module,exports){
+},{"buffer":55,"http":91,"https":59,"q":79,"tiny-conf":"tiny-conf"}],71:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -11590,7 +11621,7 @@ function tdef(params) {
 module.exports = tdef;
 
 }).call(this,require("buffer").Buffer)
-},{"./util/response-helper":71,"./util/validate":72,"buffer":53,"http":89,"https":57,"q":77,"tiny-conf":"tiny-conf","url-template":95}],70:[function(require,module,exports){
+},{"./util/response-helper":73,"./util/validate":74,"buffer":55,"http":91,"https":59,"q":79,"tiny-conf":"tiny-conf","url-template":97}],72:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -11649,7 +11680,7 @@ function tdefs(namespace) {
 
 module.exports = tdefs;
 
-},{"./util/response-helper":71,"http":89,"https":57,"q":77,"tiny-conf":"tiny-conf","url-template":95}],71:[function(require,module,exports){
+},{"./util/response-helper":73,"http":91,"https":59,"q":79,"tiny-conf":"tiny-conf","url-template":97}],73:[function(require,module,exports){
 'use strict';
 
 module.exports = function (code, respData, res, resolve, reject, skipJsonParsing) {
@@ -11683,7 +11714,7 @@ module.exports = function (code, respData, res, resolve, reject, skipJsonParsing
   }
 };
 
-},{}],72:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 'use strict';
 
 function find(obj, desc) {
@@ -11705,7 +11736,7 @@ module.exports = function (obj, props) {
   });
 };
 
-},{}],73:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 'use strict';
 
 var Q = require('q');
@@ -11759,7 +11790,7 @@ function whoami() {
 
 module.exports = whoami;
 
-},{"./util/response-helper":71,"http":89,"https":57,"q":77,"tiny-conf":"tiny-conf"}],74:[function(require,module,exports){
+},{"./util/response-helper":73,"http":91,"https":59,"q":79,"tiny-conf":"tiny-conf"}],76:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -11806,7 +11837,7 @@ function nextTick(fn, arg1, arg2, arg3) {
 }
 
 }).call(this,require('_process'))
-},{"_process":75}],75:[function(require,module,exports){
+},{"_process":77}],77:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -11968,7 +11999,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],76:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/punycode v1.4.1 by @mathias */
 ;(function(root) {
@@ -12505,7 +12536,7 @@ process.umask = function() { return 0; };
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],77:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 (function (process){
 // vim:ts=4:sts=4:sw=4:
 /*!
@@ -14557,7 +14588,7 @@ return Q;
 });
 
 }).call(this,require('_process'))
-},{"_process":75}],78:[function(require,module,exports){
+},{"_process":77}],80:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -14643,7 +14674,7 @@ var isArray = Array.isArray || function (xs) {
   return Object.prototype.toString.call(xs) === '[object Array]';
 };
 
-},{}],79:[function(require,module,exports){
+},{}],81:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -14730,13 +14761,13 @@ var objectKeys = Object.keys || function (obj) {
   return res;
 };
 
-},{}],80:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 'use strict';
 
 exports.decode = exports.parse = require('./decode');
 exports.encode = exports.stringify = require('./encode');
 
-},{"./decode":78,"./encode":79}],81:[function(require,module,exports){
+},{"./decode":80,"./encode":81}],83:[function(require,module,exports){
 // a duplex stream is just a stream that is both readable and writable.
 // Since JS doesn't have multiple prototypal inheritance, this class
 // prototypally inherits from Readable, and then parasitically from
@@ -14812,7 +14843,7 @@ function forEach(xs, f) {
     f(xs[i], i);
   }
 }
-},{"./_stream_readable":83,"./_stream_writable":85,"core-util-is":55,"inherits":59,"process-nextick-args":74}],82:[function(require,module,exports){
+},{"./_stream_readable":85,"./_stream_writable":87,"core-util-is":57,"inherits":61,"process-nextick-args":76}],84:[function(require,module,exports){
 // a passthrough stream.
 // basically just the most minimal sort of Transform stream.
 // Every written chunk gets output as-is.
@@ -14839,7 +14870,7 @@ function PassThrough(options) {
 PassThrough.prototype._transform = function (chunk, encoding, cb) {
   cb(null, chunk);
 };
-},{"./_stream_transform":84,"core-util-is":55,"inherits":59}],83:[function(require,module,exports){
+},{"./_stream_transform":86,"core-util-is":57,"inherits":61}],85:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -15779,7 +15810,7 @@ function indexOf(xs, x) {
   return -1;
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":81,"./internal/streams/BufferList":86,"_process":75,"buffer":53,"buffer-shims":52,"core-util-is":55,"events":56,"inherits":59,"isarray":61,"process-nextick-args":74,"string_decoder/":93,"util":51}],84:[function(require,module,exports){
+},{"./_stream_duplex":83,"./internal/streams/BufferList":88,"_process":77,"buffer":55,"buffer-shims":54,"core-util-is":57,"events":58,"inherits":61,"isarray":63,"process-nextick-args":76,"string_decoder/":95,"util":53}],86:[function(require,module,exports){
 // a transform stream is a readable/writable stream where you do
 // something with the data.  Sometimes it's called a "filter",
 // but that's not a great name for it, since that implies a thing where
@@ -15960,7 +15991,7 @@ function done(stream, er) {
 
   return stream.push(null);
 }
-},{"./_stream_duplex":81,"core-util-is":55,"inherits":59}],85:[function(require,module,exports){
+},{"./_stream_duplex":83,"core-util-is":57,"inherits":61}],87:[function(require,module,exports){
 (function (process){
 // A bit simpler than readable streams.
 // Implement an async ._write(chunk, encoding, cb), and it'll handle all
@@ -16489,7 +16520,7 @@ function CorkedRequest(state) {
   };
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":81,"_process":75,"buffer":53,"buffer-shims":52,"core-util-is":55,"events":56,"inherits":59,"process-nextick-args":74,"util-deprecate":98}],86:[function(require,module,exports){
+},{"./_stream_duplex":83,"_process":77,"buffer":55,"buffer-shims":54,"core-util-is":57,"events":58,"inherits":61,"process-nextick-args":76,"util-deprecate":100}],88:[function(require,module,exports){
 'use strict';
 
 var Buffer = require('buffer').Buffer;
@@ -16554,7 +16585,7 @@ BufferList.prototype.concat = function (n) {
   }
   return ret;
 };
-},{"buffer":53,"buffer-shims":52}],87:[function(require,module,exports){
+},{"buffer":55,"buffer-shims":54}],89:[function(require,module,exports){
 (function (process){
 var Stream = (function (){
   try {
@@ -16574,7 +16605,7 @@ if (!process.browser && process.env.READABLE_STREAM === 'disable' && Stream) {
 }
 
 }).call(this,require('_process'))
-},{"./lib/_stream_duplex.js":81,"./lib/_stream_passthrough.js":82,"./lib/_stream_readable.js":83,"./lib/_stream_transform.js":84,"./lib/_stream_writable.js":85,"_process":75}],88:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":83,"./lib/_stream_passthrough.js":84,"./lib/_stream_readable.js":85,"./lib/_stream_transform.js":86,"./lib/_stream_writable.js":87,"_process":77}],90:[function(require,module,exports){
 (function (process){
 exports = module.exports = SemVer;
 
@@ -17781,7 +17812,7 @@ function prerelease(version, loose) {
 }
 
 }).call(this,require('_process'))
-},{"_process":75}],89:[function(require,module,exports){
+},{"_process":77}],91:[function(require,module,exports){
 (function (global){
 var ClientRequest = require('./lib/request')
 var extend = require('xtend')
@@ -17863,7 +17894,7 @@ http.METHODS = [
 	'UNSUBSCRIBE'
 ]
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./lib/request":91,"builtin-status-codes":54,"url":96,"xtend":102}],90:[function(require,module,exports){
+},{"./lib/request":93,"builtin-status-codes":56,"url":98,"xtend":104}],92:[function(require,module,exports){
 (function (global){
 exports.fetch = isFunction(global.fetch) && isFunction(global.ReadableStream)
 
@@ -17907,7 +17938,7 @@ function isFunction (value) {
 xhr = null // Help gc
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],91:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -18188,7 +18219,7 @@ var unsafeHeaders = [
 ]
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":90,"./response":92,"_process":75,"buffer":53,"inherits":59,"readable-stream":87,"to-arraybuffer":94}],92:[function(require,module,exports){
+},{"./capability":92,"./response":94,"_process":77,"buffer":55,"inherits":61,"readable-stream":89,"to-arraybuffer":96}],94:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -18372,7 +18403,7 @@ IncomingMessage.prototype._onXHRProgress = function () {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":90,"_process":75,"buffer":53,"inherits":59,"readable-stream":87}],93:[function(require,module,exports){
+},{"./capability":92,"_process":77,"buffer":55,"inherits":61,"readable-stream":89}],95:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -18595,7 +18626,7 @@ function base64DetectIncompleteChar(buffer) {
   this.charLength = this.charReceived ? 3 : 0;
 }
 
-},{"buffer":53}],94:[function(require,module,exports){
+},{"buffer":55}],96:[function(require,module,exports){
 var Buffer = require('buffer').Buffer
 
 module.exports = function (buf) {
@@ -18624,7 +18655,7 @@ module.exports = function (buf) {
 	}
 }
 
-},{"buffer":53}],95:[function(require,module,exports){
+},{"buffer":55}],97:[function(require,module,exports){
 (function (root, factory) {
     if (typeof exports === 'object') {
         module.exports = factory();
@@ -18818,7 +18849,7 @@ module.exports = function (buf) {
   return new UrlTemplate();
 }));
 
-},{}],96:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -19552,7 +19583,7 @@ Url.prototype.parseHost = function() {
   if (host) this.hostname = host;
 };
 
-},{"./util":97,"punycode":76,"querystring":80}],97:[function(require,module,exports){
+},{"./util":99,"punycode":78,"querystring":82}],99:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -19570,7 +19601,7 @@ module.exports = {
   }
 };
 
-},{}],98:[function(require,module,exports){
+},{}],100:[function(require,module,exports){
 (function (global){
 
 /**
@@ -19641,14 +19672,14 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],99:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],100:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -20238,7 +20269,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":99,"_process":75,"inherits":59}],101:[function(require,module,exports){
+},{"./support/isBuffer":101,"_process":77,"inherits":61}],103:[function(require,module,exports){
 var waxeye;
 /*
 # Waxeye Parser Generator
@@ -20510,7 +20541,7 @@ if (typeof module !== "undefined" && module !== null) {
   module.exports.State = waxeye.State;
   module.exports.WaxeyeParser = waxeye.WaxeyeParser;
 }
-},{}],102:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 module.exports = extend
 
 var hasOwnProperty = Object.prototype.hasOwnProperty;

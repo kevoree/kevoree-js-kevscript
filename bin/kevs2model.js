@@ -72,6 +72,10 @@ if (optimist.argv._.length === 1) {
                 fs.writeFile(output, modelStr, 'utf8', function (err) {
                     if (err) { throw err; }
                     console.log('Kevoree model generated succefully from KevScript file');
+                    if (Object.keys(ctxVars).length > 0) {
+                      var ctxVarsStr = Object.keys(ctxVars).map(function (key) { return key + '=' + ctxVars[key]; }).join(', ');
+                      console.log('ctx vars: ' + ctxVarsStr);
+                    }
                     console.log('kevs used: '+input);
                     console.log('model gen: '+output);
                 });
