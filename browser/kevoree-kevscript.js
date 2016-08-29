@@ -1089,84 +1089,75 @@ function createPorts(comp) {
 }
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  var factory = new kevoree.factory.DefaultKevoreeFactory();
-  var error;
+  var nameList;
   try {
-    var nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
-    statements[stmt.children[1].type](model, statements, stmt.children[1], opts, function (err, tdef) {
-      if (err) {
-        cb(err);
-      } else {
-        var error;
-        try {
-          nameList.forEach(function (instancePath) {
-            var instance;
-            if (instancePath.length === 1) {
-              // node / chan / group
-              if (tdef.metaClassName() === 'org.kevoree.NodeType') {
-                instance = factory.createContainerNode();
-                instance.name = instancePath[0].value;
-                instance.started = true;
-                instance.typeDefinition = tdef;
-                inflateDictionary(instance);
-                model.addNodes(instance);
-              } else if (tdef.metaClassName() === 'org.kevoree.GroupType') {
-                instance = factory.createGroup();
-                instance.name = instancePath[0].value;
-                instance.started = true;
-                instance.typeDefinition = tdef;
-                inflateDictionary(instance);
-                model.addGroups(instance);
-              } else if (tdef.metaClassName() === 'org.kevoree.ChannelType') {
-                instance = factory.createChannel();
-                instance.name = instancePath[0].value;
-                instance.started = true;
-                instance.typeDefinition = tdef;
-                inflateDictionary(instance);
-                model.addHubs(instance);
-              } else {
-                throw new KevScriptError('Components must be added in nodes (eg. "add aNode.'+instancePath[0].value+': '+tdef.name+'"). "' + instancePath.value + '" is not valid', instancePath.pos);
-              }
+    nameList = statements[stmt.children[0].type](model, statements, stmt.children[0], opts);
+  } catch (err) {
+    cb(err);
+    return;
+  }
+  statements[stmt.children[1].type](model, statements, stmt.children[1], opts, function (err, tdef) {
+    if (err) {
+      cb(err);
+    } else {
+      var error;
+      try {
+        var factory = new kevoree.factory.DefaultKevoreeFactory();
+        nameList.forEach(function (instancePath) {
+          var instance;
+          if (instancePath.length === 1) {
+            // node / chan / group
+            if (tdef.metaClassName() === 'org.kevoree.NodeType') {
+              instance = factory.createContainerNode();
+              instance.name = instancePath[0].value;
+              instance.started = true;
+              instance.typeDefinition = tdef;
+              inflateDictionary(instance);
+              model.addNodes(instance);
+            } else if (tdef.metaClassName() === 'org.kevoree.GroupType') {
+              instance = factory.createGroup();
+              instance.name = instancePath[0].value;
+              instance.started = true;
+              instance.typeDefinition = tdef;
+              inflateDictionary(instance);
+              model.addGroups(instance);
+            } else if (tdef.metaClassName() === 'org.kevoree.ChannelType') {
+              instance = factory.createChannel();
+              instance.name = instancePath[0].value;
+              instance.started = true;
+              instance.typeDefinition = tdef;
+              inflateDictionary(instance);
+              model.addHubs(instance);
+            } else {
+              throw new KevScriptError('Components must be added in nodes (eg. "add aNode.'+instancePath[0].value+': '+tdef.name+'"). "' + instancePath.value + '" is not valid', instancePath.pos);
+            }
 
-            } else if (instancePath.length === 2) {
-              // component/subNode
-              if (tdef.metaClassName() === 'org.kevoree.NodeType') {
-                if (instancePath[0].value === '*') {
-                  throw new KevScriptError('Add statement with "*" only works for component type', instancePath[0].pos);
+          } else if (instancePath.length === 2) {
+            // component/subNode
+            if (tdef.metaClassName() === 'org.kevoree.NodeType') {
+              if (instancePath[0].value === '*') {
+                throw new KevScriptError('Add statement with "*" only works for component type', instancePath[0].pos);
+              } else {
+                // add a subNode to a node
+                var hostNode = model.findNodesByID(instancePath[0].value);
+                if (hostNode) {
+                  instance = factory.createContainerNode();
+                  instance.name = instancePath[1].value;
+                  instance.started = true;
+                  instance.typeDefinition = tdef;
+                  inflateDictionary(instance);
+                  hostNode.addHosts(instance);
+                  instance.host = hostNode;
+                  model.addNodes(instance);
                 } else {
-                  // add a subNode to a node
-                  var hostNode = model.findNodesByID(instancePath[0].value);
-                  if (hostNode) {
-                    instance = factory.createContainerNode();
-                    instance.name = instancePath[1].value;
-                    instance.started = true;
-                    instance.typeDefinition = tdef;
-                    inflateDictionary(instance);
-                    hostNode.addHosts(instance);
-                    instance.host = hostNode;
-                    model.addNodes(instance);
-                  } else {
-                    throw new KevScriptError('Unable to add node "'+instancePath[1].value+'" to "'+instancePath[0].value+'". "'+instancePath[0].value+'" does not exist', instancePath[0].pos);
-                  }
+                  throw new KevScriptError('Unable to add node "'+instancePath[1].value+'" to "'+instancePath[0].value+'". "'+instancePath[0].value+'" does not exist', instancePath[0].pos);
                 }
-              } else if (tdef.metaClassName() === 'org.kevoree.ComponentType') {
-                if (instancePath[0].value === '*') {
-                  // add component to all non-hosted nodes
-                  model.nodes.array.forEach(function (node) {
-                    if (!node.host) {
-                      instance = factory.createComponentInstance();
-                      instance.name = instancePath[1].value;
-                      instance.started = true;
-                      instance.typeDefinition = tdef;
-                      inflateDictionary(instance);
-                      createPorts(instance);
-                      node.addComponents(instance);
-                    }
-                  });
-                } else {
-                  // add a component to a node
-                  var node = model.findNodesByID(instancePath[0].value);
-                  if (node) {
+              }
+            } else if (tdef.metaClassName() === 'org.kevoree.ComponentType') {
+              if (instancePath[0].value === '*') {
+                // add component to all non-hosted nodes
+                model.nodes.array.forEach(function (node) {
+                  if (!node.host) {
                     instance = factory.createComponentInstance();
                     instance.name = instancePath[1].value;
                     instance.started = true;
@@ -1174,29 +1165,37 @@ module.exports = function (model, statements, stmt, opts, cb) {
                     inflateDictionary(instance);
                     createPorts(instance);
                     node.addComponents(instance);
-                  } else {
-                    throw new KevScriptError('Unable to add component "'+instancePath[1].value+'" to "'+instancePath[0].value+'". "'+instancePath[0].value+'" does not exist', instancePath[0].pos);
                   }
-                }
+                });
               } else {
-                throw new KevScriptError('Instance "' + instancePath[1].value+ '" of type ' + tdef.metaClassName() + ' cannot be added to a node', instancePath[1].pos);
+                // add a component to a node
+                var node = model.findNodesByID(instancePath[0].value);
+                if (node) {
+                  instance = factory.createComponentInstance();
+                  instance.name = instancePath[1].value;
+                  instance.started = true;
+                  instance.typeDefinition = tdef;
+                  inflateDictionary(instance);
+                  createPorts(instance);
+                  node.addComponents(instance);
+                } else {
+                  throw new KevScriptError('Unable to add component "'+instancePath[1].value+'" to "'+instancePath[0].value+'". "'+instancePath[0].value+'" does not exist', instancePath[0].pos);
+                }
               }
             } else {
-              throw new KevScriptError('Instance path for "add" statements must be "name" or "hostName.childName". Instance path "'+instancePath.value+'" is not valid', instancePath.pos);
+              throw new KevScriptError('Instance "' + instancePath[1].value+ '" of type ' + tdef.metaClassName() + ' cannot be added to a node', instancePath[1].pos);
             }
-          });
-        } catch (err) {
-          error = err;
-        } finally {
-          cb(error);
-        }
+          } else {
+            throw new KevScriptError('Instance path for "add" statements must be "name" or "hostName.childName". Instance path "'+instancePath.value+'" is not valid', instancePath.pos);
+          }
+        });
+      } catch (err) {
+        error = err;
+      } finally {
+        cb(error);
       }
-    });
-  } catch (err) {
-    error = err;
-  } finally {
-    cb(error);
-  }
+    }
+  });
 };
 
 },{"../KevScriptError":2,"kevoree-library":"kevoree-library"}],17:[function(require,module,exports){
@@ -2378,33 +2377,59 @@ function askRegistry(model, namespace, name, version, logger) {
 }
 
 module.exports = function typeDef(model, statements, stmt, opts, cb) {
-  var error;
+  var typeFqn;
   try {
-    var typeFqn = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-    var version, namespace;
+    typeFqn = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
+  } catch (err) {
+    cb(err);
+    return;
+  }
 
-    if (stmt.children[1]) {
-      version = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-    }
+  var version, namespace;
 
-    var name = typeFqn.value;
-    if (name.split('.').length === 1) {
-      // default namespace to DEFAULT_NAMESPACE for namespace-less TypeDefinitions (ie: add node: JavascriptNode)
-      namespace = DEFAULT_NAMESPACE;
+  if (stmt.children[1]) {
+    version = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
+  }
+
+  var name = typeFqn.value;
+  if (name.split('.').length === 1) {
+    // default namespace to DEFAULT_NAMESPACE for namespace-less TypeDefinitions (ie: add node: JavascriptNode)
+    namespace = DEFAULT_NAMESPACE;
+  } else {
+    var splitted = name.split('.');
+    name = splitted.pop();
+    namespace = splitted.join('.');
+  }
+
+  if (!version) {
+    // default version
+    version = { tdef: 'LATEST', du: 'RELEASE' };
+  }
+
+  if (version.tdef === 'LATEST') {
+    // specified version is LATEST
+    // ask registry for LATEST
+    askRegistry(model, namespace, name, version, opts.logger)
+      .then(function (tdef) {
+        cb(null, tdef);
+      })
+      .catch(function (err) {
+        cb(new KevScriptError(err.message, stmt.pos));
+      });
+
+  } else {
+    // specified version is not LATEST
+    var tdefPath = '/packages[' + namespace.split('.').join(']/packages[') + ']/typeDefinitions[name=' + name + ',version=' + version.tdef + ']';
+
+    // try to find in model
+    var tdef = model.findByPath(tdefPath);
+    if (tdef) {
+      // found tdef in model
+      opts.logger.info('KevScript', 'Found ' + namespace + '.' + name + '/' + version.tdef + ' in model');
+      cb(null, tdef);
     } else {
-      var splitted = name.split('.');
-      name = splitted.pop();
-      namespace = splitted.join('.');
-    }
-
-    if (!version) {
-      // default version
-      version = { tdef: 'LATEST', du: 'RELEASE' };
-    }
-
-    if (version.tdef === 'LATEST') {
-      // specified version is LATEST
-      // ask registry for LATEST
+      // unable to find tdef in model
+      // ask registry
       askRegistry(model, namespace, name, version, opts.logger)
         .then(function (tdef) {
           cb(null, tdef);
@@ -2412,33 +2437,7 @@ module.exports = function typeDef(model, statements, stmt, opts, cb) {
         .catch(function (err) {
           cb(new KevScriptError(err.message, stmt.pos));
         });
-
-    } else {
-      // specified version is not LATEST
-      var tdefPath = '/packages[' + namespace.split('.').join(']/packages[') + ']/typeDefinitions[name=' + name + ',version=' + version.tdef + ']';
-
-      // try to find in model
-      var tdef = model.findByPath(tdefPath);
-      if (tdef) {
-        // found tdef in model
-        opts.logger.info('KevScript', 'Found ' + namespace + '.' + name + '/' + version.tdef + ' in model');
-        cb(null, tdef);
-      } else {
-        // unable to find tdef in model
-        // ask registry
-        askRegistry(model, namespace, name, version, opts.logger)
-          .then(function (tdef) {
-            cb(null, tdef);
-          })
-          .catch(function (err) {
-            cb(new KevScriptError(err.message, stmt.pos));
-          });
-      }
     }
-  } catch (err) {
-    error = err;
-  } finally {
-    cb(error);
   }
 };
 
