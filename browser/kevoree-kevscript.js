@@ -23,7 +23,7 @@ KevScript.prototype = {
    * @param {String} data string
    * @param {Object|Function} [ctxModel] a model to "start" on (in order not to create a model from scratch)
    * @param {Object|Function} [ctxVars] context variables to be accessible from the KevScript
-   * @param {Function} callback function (Error, ContainerRoot)
+   * @param {Function} callback function (Error, ContainerRoot, Array<Warning>) (with {message: string, pos: [0,0]}: Warning)
    * @throws Error on SyntaxError and on source code validity and such
    */
   parse: function (data, ctxModel, ctxVars, callback) {
@@ -49,7 +49,7 @@ KevScript.prototype = {
     var parser = new kevs.Parser();
     var ast = parser.parse(data);
     if (ast.type !== 'kevScript') {
-      callback(ast);
+      callback(ast, null, []);
     } else {
       interpreter(ast, ctxModel, options, callback);
     }
@@ -395,8 +395,7 @@ module.exports = function (model) {
   var str = '';
 
   function processDictionary(instanceName, values, fragName, dicType) {
-    while (values.hasNext()) {
-      var val = values.next();
+    values.array.forEach(function (val) {
       var attr = dicType.findAttributesByID(val.name);
       if (attr.defaultValue !== val.value) {
         if (str.length !== 0) {
@@ -409,7 +408,7 @@ module.exports = function (model) {
           str += 'set ' + instanceName + '.' + val.name + ' = ' + lexValue(val.value);
         }
       }
-    }
+    });
   }
 
   function processInstance(instance, host) {
@@ -558,13 +557,19 @@ function interpreter(ast, ctxModel, opts, callback) {
   // this ContainerRoot is the root of the model
   factory.root(model);
 
+  var options = {
+    logger: opts.logger,
+    ctxVars: opts.ctxVars,
+    warnings: []
+  };
+
   // process statements
   var tasks = [];
   ast.children.forEach(function (child0) {
     child0.children.forEach(function (stmt) {
       tasks.push(function (done) {
         if (typeof (statements[stmt.type]) === 'function') {
-          statements[stmt.type](model, statements, stmt, opts, done);
+          statements[stmt.type](model, statements, stmt, options, done);
         } else {
           done(new Error('Unknown statement "' + stmt.type + '"'));
         }
@@ -575,7 +580,7 @@ function interpreter(ast, ctxModel, opts, callback) {
   // execute tasks
   async.series(tasks, function (err) {
     if (err) {
-      callback(err);
+      callback(err, null, options.warnings);
     } else {
       var error;
       try {
@@ -583,7 +588,7 @@ function interpreter(ast, ctxModel, opts, callback) {
       } catch (err) {
         error = err;
       } finally {
-        callback(error, model);
+        callback(error, model, options.warnings);
       }
     }
   });
@@ -1312,7 +1317,10 @@ module.exports = function (model, statements, stmt, opts, cb) {
 'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  console.log('"repo" statement is deprecated');
+  opts.warnings.push({
+    message: '"repo" statement is deprecated',
+    pos: stmt.pos
+  });
   cb();
 };
 
@@ -1685,7 +1693,10 @@ module.exports = function (model, stmts, stmt, opts) {
 'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  console.log('"include" statement is deprecated since v2.0.0');
+  opts.warnings.push({
+    message: '"include" statement is deprecated',
+    pos: stmt.pos
+  });
   cb();
 };
 
@@ -1912,7 +1923,10 @@ module.exports = function (model, statements, stmt) {
 'use strict';
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  console.log('"pause" statement is deprecated');
+  opts.warnings.push({
+    message: '"pause" statement is deprecated',
+    pos: stmt.pos
+  });
   cb();
 };
 
@@ -2171,13 +2185,13 @@ function updateDictionary(dictionary, instance, attrStmt, value, isFragment) {
 }
 
 module.exports = function (model, statements, stmt, opts, cb) {
-  var attrPath, nodePath, value, error, instances;
+  var attrPath, nodePath, valueStmt, error, instances;
   var factory = new kevoree.factory.DefaultKevoreeFactory();
   try {
     if (stmt.children.length === 2) {
       // regular attribute
       attrPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-      value = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
+      valueStmt = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
 
       if (attrPath.length === 3) {
         var nodes = model.select('/nodes[' + attrPath[0].value + ']').array;
@@ -2198,7 +2212,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
             if (!dic) {
               comp.dictionary = factory.createDictionary().withGenerated_KMF_ID(0);
             }
-            updateDictionary(comp.dictionary, comp, attrPath[2], value, false);
+            updateDictionary(comp.dictionary, comp, attrPath[2], valueStmt.value, false);
           });
       } else if (attrPath.length === 2) {
         instances = model
@@ -2215,7 +2229,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
             if (!dic) {
               instance.dictionary = factory.createDictionary().withGenerated_KMF_ID(0);
             }
-            updateDictionary(instance.dictionary, instance, attrPath[1], value, false);
+            updateDictionary(instance.dictionary, instance, attrPath[1], valueStmt.value, false);
           });
       } else {
         throw new KevScriptError('"' + attrPath.value + '" is not a valid attribute path', attrPath.pos);
@@ -2225,7 +2239,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
       // fragmented attribute
       attrPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
       nodePath = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
-      value = statements[stmt.children[2].type](model, statements, stmt.children[2], opts, cb);
+      valueStmt = statements[stmt.children[2].type](model, statements, stmt.children[2], opts, cb);
 
       if (attrPath.length === 3) {
         throw new KevScriptError('Setting fragmented attribute only makes sense for groups & channels. "' + attrPath.value + '/' + nodePath.value + '" can only refer to a component attribute. Set failed', attrPath.pos);
@@ -2243,13 +2257,13 @@ module.exports = function (model, statements, stmt, opts, cb) {
               if (nodePath[0] === '*') {
                 // all fragments
                 instance.fragmentDictionary.array.forEach(function (fDic) {
-                  updateDictionary(fDic, instance, attrPath[1], value, true);
+                  updateDictionary(fDic, instance, attrPath[1], valueStmt.value, true);
                 });
               } else {
                 // specific fragment
                 var fDic = instance.findFragmentDictionaryByID(nodePath[0].value);
                 if (fDic) {
-                  updateDictionary(fDic, instance, attrPath[1], value, true);
+                  updateDictionary(fDic, instance, attrPath[1], valueStmt.value, true);
                 } else {
                   throw new KevScriptError('Unable to find fragment "' + nodePath[0].value + '" for instance "' + attrPath[0].value + '". Set failed', nodePath[0].pos);
                 }
