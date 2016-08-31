@@ -1837,7 +1837,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
   var error;
   try {
     var networkPath = statements[stmt.children[0].type](model, statements, stmt.children[0], opts, cb);
-    var value = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
+    var valueStmt = statements[stmt.children[1].type](model, statements, stmt.children[1], opts, cb);
     if (networkPath.length === 3) {
       var nodes = [];
       if (networkPath[0].value === '*') {
@@ -1897,7 +1897,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
       }
 
       netNames.forEach(function (net) {
-        net.value = value;
+        net.value = valueStmt.value;
       });
     } else {
       throw new KevScriptError('"' + networkPath.value + '" is not a network path. Network path must look like "nodeName.netType.netName"', networkPath[0].pos);
