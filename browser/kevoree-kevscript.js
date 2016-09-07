@@ -192,7 +192,7 @@ module.exports = function (model) {
         if (str.length !== 0) {
           str += '\n';
         }
-        str += 'add ' + map[tdef].join(', ') + ' : ' + tdef;
+        str += 'add ' + map[tdef].join(', ') + ': ' + tdef;
       }
     }
   }
@@ -217,7 +217,7 @@ module.exports = function (model) {
           if (str.length !== 0) {
             str += '\n';
           }
-          str += 'add ' + map[tdef].join(', ') + ' : ' + tdef;
+          str += 'add ' + map[tdef].join(', ') + ': ' + tdef;
         }
       }
     }
@@ -256,7 +256,7 @@ module.exports = function (model) {
           if (str.length !== 0) {
             str += '\n';
           }
-          str += 'add ' + compsMap[tdef].join(', ') + ' : ' + tdef;
+          str += 'add ' + compsMap[tdef].join(', ') + ': ' + tdef;
         }
       }
     }
@@ -267,7 +267,7 @@ module.exports = function (model) {
           if (str.length !== 0) {
             str += '\n';
           }
-          str += 'add ' + subnodesMap[tdef].join(', ') + ' : ' + tdef;
+          str += 'add ' + subnodesMap[tdef].join(', ') + ': ' + tdef;
         }
       }
     }
@@ -1063,7 +1063,7 @@ function inflateDictionary(instance) {
   var factory = new kevoree.factory.DefaultKevoreeFactory();
   var dicType = instance.typeDefinition.dictionaryType;
   if (dicType) {
-    var dic = factory.createDictionary().withGenerated_KMF_ID(0.0);
+    var dic = factory.createDictionary().withGenerated_KMF_ID('0.0');
     dicType.attributes.array.forEach(function (attr) {
       if (!attr.fragmentDependant) {
         var dicEntry = factory.createValue();
@@ -1345,7 +1345,7 @@ function processFragmentDictionary(node) {
   node.groups.array.forEach(function (group) {
     var fDic = group.findFragmentDictionaryByID(node.name);
     if (!fDic) {
-      fDic = factory.createFragmentDictionary().withGenerated_KMF_ID(0.0);
+      fDic = factory.createFragmentDictionary().withGenerated_KMF_ID('0.0');
       fDic.name = node.name;
       group.addFragmentDictionary(fDic);
     }
@@ -1368,7 +1368,7 @@ function processFragmentDictionary(node) {
         if (binding.hub) {
           var fDic = binding.hub.findFragmentDictionaryByID(node.name);
           if (!fDic) {
-            fDic = factory.createFragmentDictionary().withGenerated_KMF_ID(0.0);
+            fDic = factory.createFragmentDictionary().withGenerated_KMF_ID('0.0');
             fDic.name = node.name;
             binding.hub.addFragmentDictionary(fDic);
           }
@@ -2210,7 +2210,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
         instances.forEach(function (comp) {
             var dic = comp.dictionary;
             if (!dic) {
-              comp.dictionary = factory.createDictionary().withGenerated_KMF_ID(0.0);
+              comp.dictionary = factory.createDictionary().withGenerated_KMF_ID('0.0');
             }
             updateDictionary(comp.dictionary, comp, attrPath[2], valueStmt.value, false);
           });
@@ -2227,7 +2227,7 @@ module.exports = function (model, statements, stmt, opts, cb) {
         instances.forEach(function (instance) {
             var dic = instance.dictionary;
             if (!dic) {
-              instance.dictionary = factory.createDictionary().withGenerated_KMF_ID(0.0);
+              instance.dictionary = factory.createDictionary().withGenerated_KMF_ID('0.0');
             }
             updateDictionary(instance.dictionary, instance, attrPath[1], valueStmt.value, false);
           });
