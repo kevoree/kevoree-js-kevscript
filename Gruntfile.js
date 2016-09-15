@@ -19,11 +19,20 @@ module.exports = function (grunt) {
         src: 'test/browser/test.js',
         dest: 'browser/test.js'
       }
+    },
+
+    uglify: {
+      main: {
+        files: {
+          'browser/<%= pkg.name %>.js': 'browser/<%= pkg.name %>.js'
+        }
+      }
     }
   });
 
   grunt.loadNpmTasks('grunt-browserify');
+  grunt.loadNpmTasks('grunt-contrib-uglify');
 
-  grunt.registerTask('default', 'browserify:main');
+  grunt.registerTask('default', ['browserify:main', 'uglify']);
   grunt.registerTask('test', ['browserify:test']);
 };
