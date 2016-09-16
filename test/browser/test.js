@@ -1,14 +1,10 @@
 'use strict';
-/* globals KevoreeKevscript, KevoreeCommons, expect */
+/* globals KevoreeKevscript, KevoreeCommons, TinyConf, expect */
 
-const nconf = require('tiny-conf');
-
-nconf.use('memory');
-
-nconf.set('registry', {
-  host: 'localhost',
-  port: 8080,
-  ssl: false,
+TinyConf.set('registry', {
+  host: 'kevoree.braindead.fr',
+  port: 443,
+  ssl: true,
   oauth: {
     client_id: 'kevoree_registryapp',
     client_secret: 'kevoree_registryapp_secret'
@@ -26,7 +22,7 @@ describe('KevScript tests', function () {
   });
 
   it('should create an instance \'node0: JavascriptNode\'', function (done) {
-    var script = 'add node0: JavascriptNode';
+    var script = 'add node0: JavascriptNode/LATEST/LATEST';
 
     kevs.parse(script, function (err, model) {
       if (err) {
