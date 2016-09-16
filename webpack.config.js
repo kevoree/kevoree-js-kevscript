@@ -8,7 +8,8 @@ module.exports = {
   entry: path.resolve(pkg.main),
   output: {
     filename: path.join('browser', pkg.name + '.js'),
-    library: 'KevoreeKevscript'
+    library: 'KevoreeKevscript',
+    libraryTarget: 'umd'
   },
   externals: {
     'kevoree-library': 'KevoreeLibrary',
