@@ -21,7 +21,7 @@ describe('KevScript tests', function () {
     kevs = new KevoreeKevscript(logger);
   });
 
-  it('should create an instance \'node0: JavascriptNode\'', function (done) {
+  it('should create an instance \'node0: JavascriptNode/LATEST/LATEST\'', function (done) {
     var script = 'add node0: JavascriptNode/LATEST/LATEST';
 
     kevs.parse(script, function (err, model) {
