@@ -18,6 +18,6 @@ module.exports = {
     'tiny-conf': 'TinyConf'
   },
   plugins: [
-   new webpack.optimize.UglifyJsPlugin()
+    new webpack.optimize.UglifyJsPlugin()
   ]
 };

@@ -1,2 +1,1 @@
 add node: JavascriptNode/LATEST/LATEST
-set node.logLevel = 'DEBUG'
