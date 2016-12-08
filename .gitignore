@@ -35,7 +35,6 @@ npm-debug.log
 model.json
 model.kevs
 browser/test.js
-browser/kevoree-kevscript.js
 
 # Yarn
 yarn.lock
