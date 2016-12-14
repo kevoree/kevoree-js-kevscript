@@ -29,7 +29,7 @@ describe('KevScript tests', function () {
         done(err);
       } else {
         expect(model).toExist();
-        const node = model.findNodesByID('node0');
+        var node = model.findNodesByID('node0');
         expect(node).toExist();
         expect(node.typeDefinition).toExist();
         expect(node.typeDefinition.name).toEqual('JavascriptNode');

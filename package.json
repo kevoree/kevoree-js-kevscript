@@ -8,9 +8,10 @@
     "model2kevs": "./bin/model2kevs.js"
   },
   "scripts": {
-    "build": "webpack",
+    "build": "npm run lint && webpack",
     "prepublish": "npm run build",
-    "test": "node test/test-parser.js"
+    "test": "mocha test/server/spec",
+    "lint": "eslint lib test"
   },
   "repository": {
     "type": "git",
@@ -45,8 +46,22 @@
     "waxeye": "^0.8.1"
   },
   "devDependencies": {
+    "concurrently": "^3.1.0",
+    "eslint": "^3.12.1",
     "expect": "^1.20.2",
+    "express": "^4.14.0",
     "mocha": "^3.2.0",
     "webpack": "^1.13.3"
+  },
+  "eslintConfig": {
+    "env": {
+      "node": true
+    },
+    "extends": [
+      "eslint:recommended"
+    ],
+    "globals": {
+      "Promise": true
+    }
   }
 }
