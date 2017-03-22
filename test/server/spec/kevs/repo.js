@@ -1,8 +1,8 @@
 const assert = require('assert');
-const readKevs = require('../lib/readKevs');
+const readKevs = require('../../lib/readKevs');
 
 describe('KevScript - repo (deprecated)', function () {
-	require('../init')(this);
+	require('../../init')(this);
 
 	it('simple.kevs', () => {
 		const script = readKevs('repo/simple.kevs');

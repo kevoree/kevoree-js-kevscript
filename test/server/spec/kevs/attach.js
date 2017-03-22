@@ -1,8 +1,8 @@
 const assert = require('assert');
-const readKevs = require('../lib/readKevs');
+const readKevs = require('../../lib/readKevs');
 
 describe('KevScript - attach', function () {
-	require('../init')(this);
+	require('../../init')(this);
 
 	it('simple.kevs', () => {
 		const script = readKevs('attach/simple.kevs');

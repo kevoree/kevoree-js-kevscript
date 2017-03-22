@@ -1,6 +1,6 @@
 {
   "name": "kevoree-kevscript",
-  "version": "4.0.5",
+  "version": "4.1.0",
   "description": "Kevoree KevScript module - contains parser, interpreter and grammar",
   "main": "./lib/KevScript.js",
   "bin": {
@@ -8,10 +8,15 @@
     "model2kevs": "./bin/model2kevs.js"
   },
   "scripts": {
-    "build": "npm run lint && webpack",
-    "prepublish": "npm run build",
-    "test": "mocha test/server/spec",
+    "build": "webpack",
+    "serve": "DEBUG=true webpack-dev-server --open",
+    "prepublish": "npm run test && npm run build",
+    "test": "npm run lint && mocha --recursive test/server/spec",
     "lint": "eslint lib test"
+  },
+  "browser": {
+    "fs": false,
+    "mkdirp": false
   },
   "repository": {
     "type": "git",
@@ -38,6 +43,7 @@
     "kevoree-library": "^5.0.10",
     "kevoree-registry-api": "^1.7.6",
     "kevoree-validator": "^0.1.15",
+    "mkdirp": "^0.5.1",
     "optimist": "~0.6.1",
     "semver": "^5.3.0",
     "tiny-conf": "^1.0.4",
@@ -46,12 +52,14 @@
     "waxeye": "^0.8.1"
   },
   "devDependencies": {
-    "concurrently": "^3.1.0",
     "eslint": "^3.12.1",
     "expect": "^1.20.2",
     "express": "^4.14.0",
     "mocha": "^3.2.0",
-    "webpack": "^1.13.3"
+    "rimraf": "^2.6.1",
+    "sinon": "^2.1.0",
+    "webpack": "^2.3.0",
+    "webpack-dev-server": "^2.4.2"
   },
   "eslintConfig": {
     "env": {

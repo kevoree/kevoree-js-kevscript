@@ -1,18 +1,18 @@
 const assert = require('assert');
-const readKevs = require('../lib/readKevs');
+const readKevs = require('../../lib/readKevs');
 
-describe('KevScript - add', function () {
-	require('../init')(this);
+describe('KevScript - remove', function () {
+	require('../../init')(this);
 
 	it('simple.kevs', () => {
-		const script = readKevs('add/simple.kevs');
+		const script = readKevs('remove/simple.kevs');
 		return new Promise((resolve, reject) => {
 			this.kevs.parse(script, (err, model) => {
 				if (err) {
 					reject(err);
 				} else {
 					setTimeout(() => {
-						assert.ok(model.findNodesByID('node'));
+						assert.equal(model.findNodesByID('node'), null);
 						resolve();
 					});
 				}
@@ -21,16 +21,16 @@ describe('KevScript - add', function () {
 	});
 
 	it('multiple.kevs', () => {
-		const script = readKevs('add/multiple.kevs');
+		const script = readKevs('remove/multiple.kevs');
 		return new Promise((resolve, reject) => {
 			this.kevs.parse(script, (err, model) => {
 				if (err) {
 					reject(err);
 				} else {
 					setTimeout(() => {
-						assert.ok(model.findNodesByID('node0'));
+						assert.equal(model.findNodesByID('node0'), null);
 						assert.ok(model.findNodesByID('node1'));
-						assert.ok(model.findNodesByID('node2'));
+						assert.equal(model.findNodesByID('node2'), null);
 						resolve();
 					});
 				}

@@ -1,6 +1,7 @@
 {
   "/api/namespaces/kevoree/tdef/JavascriptNode/latest": "JavascriptNode/42",
   "/api/namespaces/kevoree/tdef/WSGroup/latest": "WSGroup/1",
+	"/api/namespaces/kevoree/tdefs/WSGroup/1": "WSGroup/1",
   "/api/namespaces/kevoree/tdefs/JavascriptNode/1": "JavascriptNode/1",
   "/api/namespaces/kevoree/tdefs/JavascriptNode/42": "JavascriptNode/42",
   "/api/namespaces/kevoree/tdefs/JavascriptNode/1/latest-dus": "JavascriptNode/1/LATEST",

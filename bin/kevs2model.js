@@ -2,15 +2,16 @@
 
 'use strict';
 
-var path = require('path'),
-	fs = require('fs'),
-	chalk = require('chalk'),
-	config = require('tiny-conf'),
-	KevScript = require('./../lib/KevScript'),
-	kevoree = require('kevoree-library'),
-	kConst = require('kevoree-const'),
-	KevoreeLogger = require('kevoree-commons').KevoreeLogger,
-	optimist = require('optimist').usage('Usage: $0 <path/to/a/model.kevs> [-c /path/to/a/context/model.json -o /path/to/output/model.json]').demand(['o'])
+var path = require('path');
+var fs = require('fs');
+var chalk = require('chalk');
+var config = require('tiny-conf');
+var KevScript = require('./../lib/KevScript');
+var kevoree = require('kevoree-library');
+var kConst = require('kevoree-const');
+var TinyConf = require('tiny-conf');
+var KevoreeLogger = require('kevoree-commons').KevoreeLogger;
+var optimist = require('optimist').usage('Usage: $0 <path/to/a/model.kevs> [-c /path/to/a/context/model.json -o /path/to/output/model.json]').demand(['o'])
 	// -o, --output
 		.alias('o', 'output').describe('o', 'Where to write the output Kevoree JSON model').default('o', 'model.json')
 	// -c, --ctxModel
@@ -23,6 +24,11 @@ var path = require('path'),
 require('tiny-conf-plugin-file')(config, kConst.CONFIG_PATH);
 require('tiny-conf-plugin-argv')(config);
 
+var tagResolverFactory = require('../lib/resolvers/tag-resolver-factory');
+var modelResolverFactory = require('../lib/resolvers/model-resolver-factory');
+var fsResolverFactory = require('../lib/resolvers/fs-resolver-factory');
+var registryResolverFactory = require('../lib/resolvers/registry-resolver-factory');
+
 if (optimist.argv._.length === 1) {
 	var input = path.resolve(optimist.argv._[0]);
 	var output = path.resolve(optimist.argv.o);
@@ -33,8 +39,13 @@ if (optimist.argv._.length === 1) {
 	if (logLevel) {
 		logger.setLevel(logLevel);
 	}
-	var kevs = new KevScript(logger);
 
+	var rootResolver = tagResolverFactory(logger,
+			modelResolverFactory(logger,
+				fsResolverFactory(logger, TinyConf.get('cache.root')),
+					registryResolverFactory(logger)));
+
+	var kevs = new KevScript(logger, { resolver: rootResolver });
 	var ctxVars = {};
 	if (optimist.argv.ctxVar) {
 		[].concat(optimist.argv.ctxVar).forEach(function(ctxvar) {

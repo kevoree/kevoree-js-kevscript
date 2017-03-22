@@ -1,8 +1,8 @@
 const assert = require('assert');
-const readKevs = require('../lib/readKevs');
+const readKevs = require('../../lib/readKevs');
 
 describe('KevScript - version', function () {
-	require('../init')(this);
+	require('../../init')(this);
 
 	it('default-version.kevs', () => {
 		const script = readKevs('version/default-version.kevs');

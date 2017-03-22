@@ -1,3 +1,6 @@
+const TinyConf = require('tiny-conf');
+const rimraf = require('rimraf');
+
 const initKevscript = require('./lib/initKevscript');
 const initRegistry = require('./lib/initRegistry');
 
@@ -19,5 +22,9 @@ module.exports = (test) => {
 		if (this.server) {
 			this.server.close();
 		}
+	});
+
+	after('clean Kevoree test cache', (done) => {
+		rimraf(TinyConf.get('cache.root'), done);
 	});
 };

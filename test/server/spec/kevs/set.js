@@ -1,8 +1,8 @@
 const assert = require('assert');
-const readKevs = require('../lib/readKevs');
+const readKevs = require('../../lib/readKevs');
 
 describe('KevScript - set', function () {
-	require('../init')(this);
+	require('../../init')(this);
 
 	it('multiline.kevs', () => {
 		const script = readKevs('set/multiline.kevs');
