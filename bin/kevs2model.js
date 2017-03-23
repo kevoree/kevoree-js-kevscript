@@ -42,7 +42,7 @@ if (optimist.argv._.length === 1) {
 
 	var rootResolver = tagResolverFactory(logger,
 			modelResolverFactory(logger,
-				fsResolverFactory(logger, TinyConf.get('cache.root')),
+				fsResolverFactory(logger, TinyConf.get('cache.root'), TinyConf.get('cache.ttl')),
 					registryResolverFactory(logger)));
 
 	var kevs = new KevScript(logger, { resolver: rootResolver });

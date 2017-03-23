@@ -29,7 +29,7 @@ describe('KevScript - set', function () {
 			this.kevs.parse(script, (err) => {
 				if (err) {
 					setTimeout(() => {
-						assert.equal(err.message, 'Attribute "unknown" does not exist in type "JavascriptNode". Set failed');
+						assert.equal(err.message, 'Type "JavascriptNode" does not have any "unknown" parameter in its dictionary. Set failed');
 						assert.deepEqual(err.pos, [35, 42]);
 						resolve();
 					});

@@ -29,7 +29,7 @@ describe('KevScript - resolvers', function () {
 
 	before('initialize resolvers', function () {
 		registryResolver = registryResolverFactory(testLogger);
-		fsResolver =  fsResolverFactory(testLogger, TinyConf.get('cache.root'), registryResolver);
+		fsResolver =  fsResolverFactory(testLogger, TinyConf.get('cache.root'), 1000*60*60*24 ,registryResolver);
 		modelResolver = modelResolverFactory(testLogger, fsResolver);
 		tagResolver = tagResolverFactory(testLogger, modelResolver);
 	});

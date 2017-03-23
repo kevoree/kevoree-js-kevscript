@@ -14,11 +14,14 @@ TinyConf.set('registry', {
 	ssl: false
 });
 
-TinyConf.set('cache.root', path.resolve(os.tmpdir(), '_kevoree-test-cache_'));
+TinyConf.set('cache', {
+	root: path.resolve(os.tmpdir(), '_kevoree-test-cache_'),
+	ttl: 86400000 // 24 hours
+});
 
-const rootResolver = tagResolverFactory(testLogger,
-		modelResolverFactory(testLogger,
-			fsResolverFactory(testLogger, TinyConf.get('cache.root'),
-				registryResolverFactory(testLogger))));
+const registryResolver = registryResolverFactory(testLogger);
+const fsResolver = fsResolverFactory(testLogger, TinyConf.get('cache.root'), TinyConf.get('cache.ttl'), registryResolver);
+const modelResolver = modelResolverFactory(testLogger, fsResolver);
+const rootResolver = tagResolverFactory(testLogger, modelResolver);
 
 module.exports = () => new KevScript(testLogger, { resolver: rootResolver });

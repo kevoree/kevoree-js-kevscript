@@ -13,7 +13,7 @@ if (process.env.DEBUG) {
 		error: noop,
 		setLevel: noop,
 		setFilter: noop
-	}
+	};
 }
 
 module.exports = logger;

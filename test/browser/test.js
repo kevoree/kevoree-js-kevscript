@@ -13,6 +13,7 @@ TinyConf.set('registry', {
 
 TinyConf.set('cache.root', '__fake_kevoree_cache__');
 var LS_PREFIX = 'kevs-cache-';
+var LS_TTL = 86400000; // 24 hours cache validity
 
 describe('KevScript tests', function () {
 	this.timeout(2500);
@@ -23,7 +24,7 @@ describe('KevScript tests', function () {
 		var logger = new KevoreeCommons.KevoreeLogger('KevScript');
 		logger.setLevel('ALL');
 		registryResolver = KevoreeKevscript.Resolvers.registryResolverFactory(logger);
-		lsResolver = KevoreeKevscript.Resolvers.lsResolverFactory(logger, LS_PREFIX, registryResolver);
+		lsResolver = KevoreeKevscript.Resolvers.lsResolverFactory(logger, LS_PREFIX, LS_TTL, registryResolver);
 		modelResolver = KevoreeKevscript.Resolvers.modelResolverFactory(logger, lsResolver);
 		tagResolver = KevoreeKevscript.Resolvers.tagResolverFactory(logger, modelResolver);
 		kevs = new KevoreeKevscript(logger, {

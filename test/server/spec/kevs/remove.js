@@ -37,4 +37,44 @@ describe('KevScript - remove', function () {
 			});
 		});
 	});
+
+	it('wildcard0.kevs', () => {
+		const script = readKevs('remove/wildcard0.kevs');
+		return new Promise((resolve, reject) => {
+			this.kevs.parse(script, (err, model) => {
+				if (err) {
+					reject(err);
+				} else {
+					setTimeout(() => {
+						assert.ok(model.findNodesByID('node0'));
+						assert.ok(model.findNodesByID('node1'));
+						assert.ok(model.findNodesByID('node2'));
+						assert.ok(model.findNodesByID('node0').findComponentsByID('ticker'));
+						assert.equal(model.findNodesByID('node1').findComponentsByID('ticker'), null);
+						assert.ok(model.findNodesByID('node2').findComponentsByID('ticker'));
+						resolve();
+					});
+				}
+			});
+		});
+	});
+
+	it('wildcard1.kevs', () => {
+		const script = readKevs('remove/wildcard1.kevs');
+		return new Promise((resolve, reject) => {
+			this.kevs.parse(script, (err, model) => {
+				if (err) {
+					reject(err);
+				} else {
+					setTimeout(() => {
+						assert.ok(model.findNodesByID('node0'));
+						assert.ok(model.findNodesByID('node1'));
+						assert.ok(model.findNodesByID('node2'));
+						assert.equal(model.select('/nodes[]/components[]').array.length, 0);
+						resolve();
+					});
+				}
+			});
+		});
+	});
 });
