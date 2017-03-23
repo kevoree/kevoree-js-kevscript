@@ -1,19 +1,23 @@
 'use strict';
 /* globals KevoreeKevscript, KevoreeCommons, TinyConf, expect, sinon */
 
-TinyConf.set('registry', {
-	host: 'registry.kevoree.org',
-	port: 443,
-	ssl: true,
-	oauth: {
-		client_id: 'kevoree_registryapp',
-		client_secret: 'kevoree_registryapp_secret'
+var LS_PREFIX = 'kevs-cache-';
+
+TinyConf.set({
+	registry: {
+		host: 'registry.kevoree.org',
+		port: 443,
+		ssl: true,
+		oauth: {
+			client_id: 'kevoree_registryapp',
+			client_secret: 'kevoree_registryapp_secret'
+		}
+	},
+	cache: {
+		root: LS_PREFIX,
+		ttl: 86400000 // 24 hours cache validity
 	}
 });
-
-TinyConf.set('cache.root', '__fake_kevoree_cache__');
-var LS_PREFIX = 'kevs-cache-';
-var LS_TTL = 86400000; // 24 hours cache validity
 
 describe('KevScript tests', function () {
 	this.timeout(2500);
@@ -24,7 +28,7 @@ describe('KevScript tests', function () {
 		var logger = new KevoreeCommons.KevoreeLogger('KevScript');
 		logger.setLevel('ALL');
 		registryResolver = KevoreeKevscript.Resolvers.registryResolverFactory(logger);
-		lsResolver = KevoreeKevscript.Resolvers.lsResolverFactory(logger, LS_PREFIX, LS_TTL, registryResolver);
+		lsResolver = KevoreeKevscript.Resolvers.lsResolverFactory(logger, registryResolver);
 		modelResolver = KevoreeKevscript.Resolvers.modelResolverFactory(logger, lsResolver);
 		tagResolver = KevoreeKevscript.Resolvers.tagResolverFactory(logger, modelResolver);
 		kevs = new KevoreeKevscript(logger, {

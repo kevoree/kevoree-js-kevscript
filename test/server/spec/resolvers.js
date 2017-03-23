@@ -1,6 +1,5 @@
 const assert = require('assert');
 const Sinon = require('sinon');
-const TinyConf = require('tiny-conf');
 const kevoree = require('kevoree-library');
 
 // test utils
@@ -29,7 +28,7 @@ describe('KevScript - resolvers', function () {
 
 	before('initialize resolvers', function () {
 		registryResolver = registryResolverFactory(testLogger);
-		fsResolver =  fsResolverFactory(testLogger, TinyConf.get('cache.root'), 1000*60*60*24 ,registryResolver);
+		fsResolver =  fsResolverFactory(testLogger, registryResolver);
 		modelResolver = modelResolverFactory(testLogger, fsResolver);
 		tagResolver = tagResolverFactory(testLogger, modelResolver);
 	});
