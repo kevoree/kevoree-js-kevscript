@@ -57,4 +57,21 @@ describe('KevScript - move', function () {
 			});
 		});
 	});
+
+	it('fail-already-exists.kevs', () => {
+		const script = readKevs('move/fail-already-exists.kevs');
+		return new Promise((resolve, reject) => {
+			this.kevs.parse(script, (err) => {
+				if (err) {
+					setTimeout(() => {
+						assert.equal(err.message, 'There is already a component named "ticker" in "node1". Move failed');
+						assert.deepEqual(err.pos, [94, 100]);
+						resolve();
+					});
+				} else {
+					reject(new Error('fail-already-exists.kevs is supposed to fail'));
+				}
+			});
+		});
+	});
 });

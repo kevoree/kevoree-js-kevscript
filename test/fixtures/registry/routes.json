@@ -11,5 +11,6 @@
   "/api/namespaces/kevoree/tdefs/WSGroup/1/released-dus": "WSGroup/1/RELEASE",
   "/api/namespaces/kevoree/tdef/Ticker/latest": "Ticker/1",
 	"/api/namespaces/kevoree/tdefs/Ticker/1": "Ticker/1",
-  "/api/namespaces/kevoree/tdefs/Ticker/1/latest-dus": "Ticker/1/LATEST"
+  "/api/namespaces/kevoree/tdefs/Ticker/1/latest-dus": "Ticker/1/LATEST",
+	"/api/namespaces/kevoree/tdef/UnknownType/latest": 404
 }
