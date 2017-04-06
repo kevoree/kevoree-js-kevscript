@@ -23,6 +23,27 @@ describe('KevScript - set', function () {
 		});
 	});
 
+	it('number-boolean.kevs', () => {
+		const script = readKevs('set/number-boolean.kevs');
+		return new Promise((resolve, reject) => {
+			this.kevs.parse(script, (err, model) => {
+				if (err) {
+					reject(err);
+				} else {
+					setTimeout(() => {
+						const node = model.findNodesByID('node');
+						const ticker = node.findComponentsByID('ticker');
+						const periodParam = ticker.dictionary.findValuesByID('period');
+						const randomParam = ticker.dictionary.findValuesByID('random');
+						assert.equal(periodParam.value, '3000');
+						assert.equal(randomParam.value, 'true');
+						resolve();
+					});
+				}
+			});
+		});
+	});
+
 	it('unknown.kevs', () => {
 		const script = readKevs('set/unknown.kevs');
 		return new Promise((resolve, reject) => {
