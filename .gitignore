@@ -34,7 +34,6 @@ npm-debug.log
 # Kevscript module related garbage (when doing tests I am mostly creating dummy file called model.json and model.kevs)
 model.json
 model.kevs
-browser/test.js
 
 # Yarn
 yarn.lock

@@ -78,7 +78,7 @@ describe('KevScript - add', function () {
 			this.kevs.parse(script, (err) => {
 				if (err) {
 					setTimeout(() => {
-						assert.equal(err.message, 'Unable to find kevoree.UnknownType/LATEST/RELEASE in http://localhost:3000');
+						assert.equal(err.message, 'Unable to find kevoree.UnknownType/LATEST in http://localhost:3000');
 						assert.deepEqual(err.pos, [10, 21]);
 						resolve();
 					});

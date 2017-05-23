@@ -60,7 +60,7 @@ if (optimist.argv.h) {
 			if (err) {
 				if (err.nt) {
 					console.log(chalk.red('Unable to parse KevScript'));
-					console.log('Unexpected token "' + err.nt + '" (l:' + err.line + ':' + err.col + ')');
+					console.log('Unexpected token "' + err.nt + '" (l' + err.line + ':' + err.col + ')');
 				} else {
 					console.log(chalk.red('KevScript execution error'));
 					console.log(err.stack);

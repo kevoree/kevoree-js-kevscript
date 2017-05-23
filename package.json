@@ -1,6 +1,6 @@
 {
   "name": "kevoree-kevscript",
-  "version": "4.1.7",
+  "version": "5.0.0-alpha",
   "description": "Kevoree KevScript module - contains parser, interpreter and grammar",
   "main": "./lib/KevScript.js",
   "bin": {
@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "webpack",
-    "serve": "DEBUG=true webpack-dev-server --open",
+    "build-prod": "NODE_ENV=production webpack -p",
+    "serve": "webpack-dev-server --open",
     "prepublish": "npm run test && npm run build",
     "test": "npm run lint && mocha --recursive test/server/spec",
     "lint": "eslint lib test"
@@ -41,12 +42,12 @@
     "kevoree-commons": "^3.0.0",
     "kevoree-const": "^1.0.1",
     "kevoree-library": "^5.0.10",
-    "kevoree-registry-api": "^1.7.6",
+    "kevoree-registry-client": "1.0.0-alpha.7",
     "kevoree-validator": "^0.1.15",
     "mkdirp": "^0.5.1",
     "optimist": "~0.6.1",
     "semver": "^5.3.0",
-    "tiny-conf": "^1.0.4",
+    "tiny-conf": "^1.0.5",
     "tiny-conf-plugin-argv": "^1.0.1",
     "tiny-conf-plugin-file": "^1.0.1",
     "waxeye": "^0.8.1"
@@ -72,7 +73,10 @@
       "Promise": true
     },
     "rules": {
-      "semi": ["error", "always"]
+      "semi": [
+        "error",
+        "always"
+      ]
     }
   }
 }

@@ -25,6 +25,16 @@ module.exports = (test) => {
 	});
 
 	after('clean Kevoree test cache', (done) => {
-		rimraf(TinyConf.get('cache.root'), done);
+		if (!process.env.NO_RM) {
+			rimraf(TinyConf.get('cache.root'), done);
+		} else {
+			done();
+		}
 	});
+
+	if (process.env.DEBUG) {
+		beforeEach(function () {
+			console.log('--------------------------'); // eslint-disable-line
+		});
+	}
 };

@@ -63,7 +63,6 @@ describe('KevScript - resolvers', function () {
 			}), model)
 			.then(function (tdef) {
 				assert.equal(tdef.version, '1');
-
 				// on second resolving, the tag LATEST will be resolved to the proper version
 				// but because the model has been erased, the model resolver will be useless
 				// but the fs has been updated previously, so the chain will stop on it
@@ -81,6 +80,33 @@ describe('KevScript - resolvers', function () {
 						// registry resolver should not be used for the second resolving
 						assert.equal(registryResolver.resolve.callCount, 1, 'registryResolver.resolve() should be hit once');
 					});
+			});
+	});
+
+	it('should hit model resolver', () => {
+		return tagResolver.resolve(new FQN('kevoree', 'JavascriptNode', { tdef: 42 }), model)
+			.then(function (tdef) {
+				assert.equal(tdef.version, '42');
+
+				assert.equal(tagResolver.resolve.callCount, 1, 'tagResolver.resolve() should be hit once');
+				assert.equal(modelResolver.resolve.callCount, 1, 'modelResolver.resolve() should be hit once');
+
+				// fs & registry resolvers should not be used
+				assert.equal(fsResolver.resolve.callCount, 0, 'fsResolver.resolve() should not be hit');
+				assert.equal(registryResolver.resolve.callCount, 0, 'registryResolver.resolve() should not be hit');
+			});
+	});
+
+	it('should hit registry because unable to find explicit du version in model', () => {
+		return tagResolver.resolve(new FQN('kevoree', 'JavascriptNode', { tdef: 42, du: { js: '5.4.0-beta.0' } }), model)
+			.then(function (tdef) {
+				assert.equal(tdef.version, '42');
+				assert.equal(tdef.deployUnits.array[0].version, '5.4.0');
+
+				assert.equal(tagResolver.resolve.callCount, 1, 'tagResolver.resolve() should be hit once');
+				assert.equal(modelResolver.resolve.callCount, 1, 'modelResolver.resolve() should be hit once');
+				assert.equal(fsResolver.resolve.callCount, 1, 'fsResolver.resolve() should be hit once');
+				assert.equal(registryResolver.resolve.callCount, 1, 'registryResolver.resolve() should be hit once');
 			});
 	});
 });

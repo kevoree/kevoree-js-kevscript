@@ -14,7 +14,7 @@ var config = {
 	externals: {
 		'kevoree-library': 'KevoreeLibrary',
 		'kevoree-validator': 'KevoreeValidator',
-		'kevoree-registry-api': 'KevoreeRegistryApi',
+		'kevoree-registry-client': 'KevoreeRegistryClient',
 		'tiny-conf': 'TinyConf'
 	},
 	plugins: [],
@@ -30,10 +30,8 @@ var config = {
 	}
 };
 
-if (!process.env.DEBUG) {
-	config.plugins.push(new webpack.optimize.UglifyJsPlugin());
-} else {
-	config.plugins.push(new webpack.HotModuleReplacementPlugin());
+if (process.env.NODE_ENV !== 'production') {
+  config.plugins.push(new webpack.HotModuleReplacementPlugin());
 	config.devtool = 'eval';
 }
 
